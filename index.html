@@ -165,7 +165,7 @@ async function prodList(){
   var h=rows.length?"":card(list.length?"Aucun résultat":"Aucun produit","Appuyez sur « Ajouter un produit » pour enregistrer votre premier article.");
   rows.forEach(function(p){
    var old=jours(p)>SEUIL&&(p.statut==="En stock"||p.statut==="Réservé");
-   h+='<div class="item" data-id="'+p.id+'">'+(p.photos&&p.photos[0]?'<img src="'+p.photos[0]+'" alt="">':'<div class="ph">'+(p.type==="tel"?"📱":"💻")+'</div>')+'<div><b>'+esc(p.marque)+' '+esc(p.modele)+'</b><p class="m">Achat : '+fcfa(p.prixAchat)+'</p><span class="tag">'+p.statut+'</span> '+(old?'<span class="tag warn">⚠ '+jours(p)+' jours en stock</span>':"")+'</div></div>';
+   h+='<div class="item" data-id="'+p.id+'">'+(p.photos&&p.photos[0]?'<img src="'+p.photos[0]+'" alt="">':'<div class="ph">'+(p.type==="tel"?"📱":p.type==="enc"?"🔊":p.type==="chg"?"🔌":p.type==="con"?"🎮":p.type==="bsn"?"🥤":"💻")+'</div>')+'<div><b>'+esc(p.marque)+' '+esc(p.modele)+'</b><p class="m">Achat : '+fcfa(p.prixAchat)+(p.type==="bsn"?' par unité, stock : '+(p.qte||0):"")+'</p><span class="tag">'+p.statut+'</span> '+(old?'<span class="tag warn">⚠ '+jours(p)+' jours en stock</span>':"")+'</div></div>';
   });
   E("p-list").innerHTML=h;
   E("p-list").onclick=function(e){var it=e.target.closest(".item");if(it){var id=Number(it.getAttribute("data-id"));prodForm(list.filter(function(p){return p.id===id})[0])}};
@@ -183,21 +183,21 @@ function prodForm(p){
  function inp(l,id,v,t,x){return'<label class="f">'+l+'<input class="in" id="'+id+'" type="'+(t||"text")+'" value="'+esc(v)+'" '+(x||"")+'></label>'}
  var im='inputmode="numeric" maxlength="15"',nu='inputmode="numeric" min="0"';
  E("prod-root").innerHTML='<h2 class="ft">'+(nw?"Nouveau produit":"Modifier le produit")+'</h2>'+
-  sel("Type","f-type",[["tel","Téléphone"],["pc","Ordinateur portable"]],p.type)+
+  sel("Type","f-type",[["tel","Téléphone"],["pc","Ordinateur portable"],["enc","Enceinte Bluetooth"],["chg","Chargeur PC"],["con","Console de jeux"],["bsn","Boisson"]],p.type)+
   inp("Marque","f-marque",p.marque)+inp("Modèle","f-modele",p.modele)+
-  '<label class="f">Caractéristiques (RAM, stockage, écran…)<textarea class="in" id="f-caract" rows="3">'+esc(p.caract)+'</textarea></label>'+
+  '<label class="f">Caractéristiques (RAM, stockage, puissance, volume, autonomie…)<textarea class="in" id="f-caract" rows="3">'+esc(p.caract)+'</textarea></label>'+
   sel("État","f-etat",ETATS,p.etat)+
   '<div id="g-pc">'+inp("Numéro de série","f-serie",p.serie)+'</div>'+
   '<div id="g-tel">'+inp("IMEI 1","f-imei1",p.imei1,"text",im)+inp("IMEI 2 (si double SIM)","f-imei2",p.imei2,"text",im)+'</div>'+
-  inp("Date d’achat","f-date",p.dateAchat,"date")+inp("Fournisseur","f-four",p.fournisseur)+
+  '<div id="g-bsn">'+inp("Quantité en stock (unités)","f-qte",p.qte,"number",nu)+'</div>'+inp("Date d’achat","f-date",p.dateAchat,"date")+inp("Fournisseur","f-four",p.fournisseur)+
   inp("Prix d’achat (FCFA)","f-pa",p.prixAchat,"number",nu)+inp("Prix de vente prévu (FCFA)","f-pp",p.prixPrevu,"number",nu)+
   sel("Statut","f-statut",STATUTS,p.statut)+
   '<div class="f">Photos (4 maximum)<div id="f-ph" class="thumbs"></div><input type="file" id="f-file" accept="image/*" multiple></div>'+
-  '<div class="f">Réparations et autres dépenses<div id="f-dep"></div><div class="row"><input class="in" id="d-l" placeholder="Description"><input class="in" id="d-m" type="number" inputmode="numeric" placeholder="FCFA"></div><button class="btn" id="d-add">+ Ajouter la dépense</button></div>'+
+  '<div class="f" id="g-dep">Réparations et autres dépenses<div id="f-dep"></div><div class="row"><input class="in" id="d-l" placeholder="Description"><input class="in" id="d-m" type="number" inputmode="numeric" placeholder="FCFA"></div><button class="btn" id="d-add">+ Ajouter la dépense</button></div>'+
   '<p class="sub err" id="f-err"></p><button class="btn pri" id="f-save">Enregistrer</button><button class="btn" id="f-cx">Annuler</button>'+(nw?"":'<button class="btn dng" id="f-del">Supprimer ce produit</button>');
  function drawPh(){E("f-ph").innerHTML=ph.map(function(s,i){return'<div class="th"><img src="'+s+'" alt=""><button data-i="'+i+'" aria-label="Retirer la photo">×</button></div>'}).join("")}
  function drawDep(){var t=Number(E("f-pa").value)||0;dep.forEach(function(d){t+=d.montant});E("f-dep").innerHTML=dep.map(function(d,i){return'<div class="dl"><span>'+esc(d.label)+'</span><b>'+fcfa(d.montant)+'</b><button data-i="'+i+'" aria-label="Retirer la dépense">×</button></div>'}).join("")+'<p class="m">Coût de revient (achat + dépenses) : <b>'+fcfa(t)+'</b></p>'}
- function tg(){var t=E("f-type").value;E("g-pc").style.display=t==="pc"?"":"none";E("g-tel").style.display=t==="tel"?"":"none"}
+ function tg(){var t=E("f-type").value,b=t==="bsn";E("g-pc").style.display=(t==="tel"||b)?"none":"";E("g-tel").style.display=t==="tel"?"":"none";E("g-bsn").style.display=b?"":"none";E("g-dep").style.display=b?"none":"";E("f-etat").parentNode.style.display=b?"none":"";E("f-pa").parentNode.firstChild.nodeValue=b?"Prix d’achat par unité (FCFA)":"Prix d’achat (FCFA)";E("f-pp").parentNode.firstChild.nodeValue=b?"Prix de vente prévu par unité (FCFA)":"Prix de vente prévu (FCFA)"}
  E("f-type").onchange=tg;E("f-pa").oninput=drawDep;tg();drawPh();drawDep();
  E("f-ph").onclick=function(e){var i=e.target.getAttribute("data-i");if(i!==null){ph.splice(Number(i),1);drawPh()}};
  E("f-dep").onclick=function(e){var i=e.target.getAttribute("data-i");if(i!==null){dep.splice(Number(i),1);drawDep()}};
@@ -216,9 +216,11 @@ function prodForm(p){
   function g(i){return E(i).value.trim()}
   function er(m){var e=E("f-err");e.textContent=m;e.scrollIntoView({block:"center"})}
   var o=Object.assign({},p,{type:g("f-type"),marque:g("f-marque"),modele:g("f-modele"),caract:g("f-caract"),etat:g("f-etat"),serie:g("f-serie"),imei1:g("f-imei1"),imei2:g("f-imei2"),dateAchat:g("f-date"),fournisseur:g("f-four"),prixAchat:Number(g("f-pa"))||0,prixPrevu:Number(g("f-pp"))||0,statut:g("f-statut"),photos:ph,depenses:dep});
-  if(o.type==="pc"){o.imei1="";o.imei2=""}else{o.serie=""}
+  if(o.type!=="tel"){o.imei1="";o.imei2=""}else{o.serie=""}
+  if(o.type==="bsn"){o.serie="";o.depenses=[];o.etat="Neuf";o.qte=Math.floor(Number(g("f-qte"))||0)}
   if(!o.marque||!o.modele)return er("Indiquez la marque et le modèle.");
   if(!o.dateAchat)return er("Indiquez la date d’achat.");
+  if(o.type==="bsn"&&g("f-qte")==="")return er("Indiquez la quantité en stock.");
   if((o.imei1&&!/^\d{15}$/.test(o.imei1))||(o.imei2&&!/^\d{15}$/.test(o.imei2)))return er("Un IMEI contient exactement 15 chiffres.");
   try{
    var cles=[o.serie,o.imei1,o.imei2].filter(Boolean),autres=await all();
@@ -248,8 +250,8 @@ async function ventList(){
  var h='<button class="btn pri" id="v-add">+ Enregistrer une vente</button>';
  if(!vs.length)h+=card('Aucune vente','Choisissez un article en stock pour enregistrer votre première vente.');
  vs.forEach(function(v){
-  var p=map[v.produitId],m=v.prix-(p?coutDe(p):v.cout),reste=v.prix-paye(v);
-  h+='<div class="item" data-id="'+v.id+'"><div><b>'+esc(v.nom)+'</b><p class="m">'+dfr(v.date)+(v.client?', '+esc(v.client):'')+'</p><p class="m">Vendu '+fcfa(v.prix)+', marge '+fcfa(m)+'</p>'+(reste>0?'<span class="tag warn">Reste à payer : '+fcfa(reste)+'</span>':'<span class="tag">Soldé</span>')+'</div></div>';
+  var p=map[v.produitId],m=v.prix-coutV(v,p),reste=v.prix-paye(v);
+  h+='<div class="item" data-id="'+v.id+'"><div><b>'+esc(v.nom)+(v.qte?' × '+v.qte:'')+'</b><p class="m">'+dfr(v.date)+(v.client?', '+esc(v.client):'')+'</p><p class="m">Vendu '+fcfa(v.prix)+', marge '+fcfa(m)+'</p>'+(reste>0?'<span class="tag warn">Reste à payer : '+fcfa(reste)+'</span>':'<span class="tag">Soldé</span>')+'</div></div>';
  });
  r.innerHTML=h;
  E('v-add').onclick=function(){ventForm(dispo)};
@@ -258,9 +260,9 @@ async function ventList(){
 function ventForm(dispo){
  var r=E('vent-root'),enc=false;
  if(!dispo.length){r.innerHTML=card('Aucun article disponible','Ajoutez d’abord un produit « En stock » ou « Réservé » dans l’onglet Produits.')+'<button class="btn" id="f-cx">Retour</button>';E('f-cx').onclick=ventList;return}
- r.innerHTML='<h2 class="ft">Nouvelle vente</h2><label class="f">Article<select class="in" id="v-p">'+dispo.map(function(p){return'<option value="'+p.id+'">'+esc(p.marque+' '+p.modele)+(p.serie?' (série '+esc(p.serie)+')':'')+(p.imei1?' (IMEI '+esc(p.imei1)+')':'')+'</option>'}).join('')+'</select></label>'+
+ r.innerHTML='<h2 class="ft">Nouvelle vente</h2><label class="f">Article<select class="in" id="v-p">'+dispo.map(function(p){return'<option value="'+p.id+'">'+esc(p.marque+' '+p.modele)+(p.serie?' (série '+esc(p.serie)+')':'')+(p.imei1?' (IMEI '+esc(p.imei1)+')':'')+(isB(p)?' (stock : '+(p.qte||0)+')':'')+'</option>'}).join('')+'</select></label>'+
   '<label class="f">Date de la vente<input class="in" id="v-d" type="date" value="'+today()+'"></label>'+
-  '<label class="f">Prix de vente réel (FCFA)<input class="in" id="v-prix" type="number" inputmode="numeric" min="0"></label>'+
+  '<div id="v-qg"><label class="f">Quantité vendue<input class="in" id="v-q" type="number" inputmode="numeric" min="1" value="1"></label></div><label class="f"><span id="v-pl">Prix de vente réel (FCFA)</span><input class="in" id="v-prix" type="number" inputmode="numeric" min="0"></label>'+
   '<div class="card"><p id="v-m"></p></div>'+
   '<label class="f">Nom du client (facultatif)<input class="in" id="v-c"></label>'+
   '<label class="f">Contact du client (facultatif)<input class="in" id="v-t" type="tel"></label>'+
@@ -268,20 +270,21 @@ function ventForm(dispo){
   '<label class="f">Mode de paiement<select class="in" id="v-mode">'+modeOpts()+'</select></label>'+
   '<p class="sub err" id="f-err"></p><button class="btn pri" id="f-save">Enregistrer la vente</button><button class="btn" id="f-cx">Annuler</button>';
  function cur(){var id=Number(E('v-p').value);return dispo.filter(function(p){return p.id===id})[0]}
- function maj(){var px=Number(E('v-prix').value)||0,c=coutDe(cur());E('v-m').innerHTML='Coût de revient : <b>'+fcfa(c)+'</b><br>Marge réelle : <b>'+fcfa(px-c)+'</b>';if(!enc)E('v-enc').value=px}
+ function maj(){var p=cur(),b=isB(p),n=b?(Number(E('v-q').value)||0):1,px=(Number(E('v-prix').value)||0)*n,c=b?n*(p.prixAchat||0):coutDe(p);E('v-qg').style.display=b?'':'none';E('v-pl').textContent=b?'Prix de vente par unité (FCFA)':'Prix de vente réel (FCFA)';E('v-m').innerHTML=(b?'Total de la vente : <b>'+fcfa(px)+'</b><br>':'')+'Coût de revient : <b>'+fcfa(c)+'</b><br>Marge réelle : <b>'+fcfa(px-c)+'</b>';if(!enc)E('v-enc').value=px}
  E('v-p').onchange=function(){E('v-prix').value=cur().prixPrevu||'';enc=false;maj()};
- E('v-prix').oninput=maj;
+ E('v-prix').oninput=maj;E('v-q').oninput=maj;
  E('v-enc').oninput=function(){enc=true};
  E('v-prix').value=cur().prixPrevu||'';maj();
  E('f-cx').onclick=ventList;
  E('f-save').onclick=async function(){
-  var p=cur(),px=Number(E('v-prix').value),en=Number(E('v-enc').value)||0,d=E('v-d').value;
+  var p=cur(),b=isB(p),n=b?Math.floor(Number(E('v-q').value)||0):1,px=(Number(E('v-prix').value)||0)*n,en=Number(E('v-enc').value)||0,d=E('v-d').value;
   if(!d)return ventErr('Indiquez la date de la vente.');
+  if(b&&(n<1||n>(p.qte||0)))return ventErr('La quantité doit être comprise entre 1 et '+(p.qte||0)+'.');
   if(!(px>0))return ventErr('Indiquez le prix de vente réel.');
   if(en<0||en>px)return ventErr('Le montant encaissé doit être compris entre 0 et le prix de vente.');
   try{
-   await put({produitId:p.id,nom:p.marque+' '+p.modele,date:d,prix:px,cout:coutDe(p),client:E('v-c').value.trim(),contact:E('v-t').value.trim(),paiements:en>0?[{date:d,montant:en,mode:E('v-mode').value}]:[],creeLe:Date.now()},'ventes');
-   p.statut='Vendu';p.prixReel=px;p.dateVente=d;await put(p);
+   await put({produitId:p.id,nom:p.marque+' '+p.modele,date:d,prix:px,cout:b?n*(p.prixAchat||0):coutDe(p),qte:b?n:0,client:E('v-c').value.trim(),contact:E('v-t').value.trim(),paiements:en>0?[{date:d,montant:en,mode:E('v-mode').value}]:[],creeLe:Date.now()},'ventes');
+   if(b){p.qte=(p.qte||0)-n;if(p.qte<=0)p.statut='Vendu'}else{p.statut='Vendu'}p.prixReel=b?Number(E('v-prix').value):px;p.dateVente=d;await put(p);
    ventList();
   }catch(e){ventErr('Enregistrement impossible. Vérifiez l’espace de stockage du téléphone.')}
  };
@@ -290,8 +293,8 @@ function ventForm(dispo){
 function ventDetail(v,p){
  var sure=false;
  function draw(){
-  var cout=p?coutDe(p):v.cout,reste=v.prix-paye(v);
-  E('vent-root').innerHTML='<h2 class="ft">'+esc(v.nom)+'</h2><div class="card"><p>Vente du '+dfr(v.date)+'</p>'+(v.client?'<p>Client : <b>'+esc(v.client)+'</b>'+(v.contact?', '+esc(v.contact):'')+'</p>':'')+'<p>Prix de vente : <b>'+fcfa(v.prix)+'</b></p><p>Coût de revient : <b>'+fcfa(cout)+'</b></p><p>Marge réelle : <b>'+fcfa(v.prix-cout)+'</b></p></div>'+
+  var cout=coutV(v,p),reste=v.prix-paye(v);
+  E('vent-root').innerHTML='<h2 class="ft">'+esc(v.nom)+(v.qte?' × '+v.qte:'')+'</h2><div class="card"><p>Vente du '+dfr(v.date)+'</p>'+(v.client?'<p>Client : <b>'+esc(v.client)+'</b>'+(v.contact?', '+esc(v.contact):'')+'</p>':'')+'<p>Prix de vente : <b>'+fcfa(v.prix)+'</b></p><p>Coût de revient : <b>'+fcfa(cout)+'</b></p><p>Marge réelle : <b>'+fcfa(v.prix-cout)+'</b></p></div>'+
    '<div class="card"><h2>Paiements</h2>'+(v.paiements.length?v.paiements.map(function(x){return'<div class="dl"><span>'+dfr(x.date)+', '+esc(x.mode)+'</span><b>'+fcfa(x.montant)+'</b></div>'}).join(''):'<p>Aucun paiement reçu.</p>')+'<p class="m">'+(reste>0?'Reste à payer : <b>'+fcfa(reste)+'</b>':'Vente soldée')+'</p></div>'+
    (reste>0?'<div class="card"><h2>Ajouter un paiement</h2><label class="f">Montant (FCFA)<input class="in" id="a-m" type="number" inputmode="numeric" value="'+reste+'"></label><label class="f">Mode de paiement<select class="in" id="a-mode">'+modeOpts()+'</select></label><button class="btn pri" id="a-add">Enregistrer le paiement</button></div>':'')+
    '<p class="sub err" id="f-err"></p><button class="btn" id="f-cx">Retour à la liste</button><button class="btn dng" id="s-del">Annuler cette vente</button>';
@@ -306,7 +309,7 @@ function ventDetail(v,p){
   E('s-del').onclick=async function(){
    if(!sure){sure=true;this.textContent='Appuyez encore : le produit repasse « En stock »';return}
    await del(v.id,'ventes');
-   if(p){p.statut='En stock';p.prixReel=null;p.dateVente=null;await put(p)}
+   if(p){if(v.qte)p.qte=(p.qte||0)+v.qte;p.statut='En stock';p.prixReel=null;p.dateVente=null;await put(p)}
    ventList();
   };
   window.scrollTo(0,0);
@@ -323,20 +326,20 @@ async function bordInit(){
  var mois=today().slice(0,7);
  var vp=vs.filter(function(v){return periode==='tout'||v.date.slice(0,7)===mois});
  var ca=0,brut=0,net=0,enc=0,reste=0;
- vp.forEach(function(v){var p=map[v.produitId];ca+=v.prix;brut+=v.prix-(p?(p.prixAchat||0):v.cout);net+=v.prix-(p?coutDe(p):v.cout);enc+=paye(v)});
+ vp.forEach(function(v){var p=map[v.produitId];ca+=v.prix;brut+=v.prix-((v.qte||!p)?v.cout:(p.prixAchat||0));net+=v.prix-coutV(v,p);enc+=paye(v)});
  vs.forEach(function(v){reste+=v.prix-paye(v)});
  var stock=ps.filter(function(p){return p.statut!=='Vendu'});
- var val=stock.reduce(function(a,p){return a+(p.prixAchat||0)},0);
- var par={};stock.forEach(function(p){par[p.statut]=(par[p.statut]||0)+1});
+ var val=stock.reduce(function(a,p){return a+(p.prixAchat||0)*nb(p)},0),nbS=stock.reduce(function(a,p){return a+nb(p)},0);
+ var par={};stock.forEach(function(p){par[p.statut]=(par[p.statut]||0)+nb(p)});
  var vieux=stock.filter(function(p){return(p.statut==='En stock'||p.statut==='Réservé')&&jours(p)>SEUIL}).sort(function(a,b){return jours(b)-jours(a)});
  function t(l,v,w){return'<div class="tile'+(w?' w2':'')+'"><span>'+l+'</span><b>'+v+'</b></div>'}
  var h='';
  if(!ps.length)h+=card('Bienvenue','Ajoutez votre premier produit dans l’onglet Produits : les chiffres s’afficheront ici.');
- h+=rappel(ps.length)+'<p class="gt">Stock</p><div class="grid">'+t('Articles en stock',stock.length)+t('Valeur au prix d’achat',fcfa(val))+'</div>';
+ h+=rappel(ps.length)+'<p class="gt">Stock</p><div class="grid">'+t('Articles en stock',nbS)+t('Valeur au prix d’achat',fcfa(val))+'</div>';
  var det=STATUTS.filter(function(s){return par[s]}).map(function(s){return s+' : '+par[s]}).join(', ');
  if(det)h+='<p class="m">'+det+'</p>';
  h+='<p class="gt">Ventes</p><select class="in" id="b-p" style="margin-bottom:10px"><option value="tout"'+(periode==='tout'?' selected':'')+'>Toutes les ventes</option><option value="mois"'+(periode==='mois'?' selected':'')+'>Ce mois-ci</option></select>'+
-  '<div class="grid">'+t('Chiffre d’affaires',fcfa(ca),1)+t('Produits vendus',vp.length)+t('Encaissé',fcfa(enc))+t('Bénéfice brut',fcfa(brut))+t('Bénéfice après dépenses',fcfa(net))+t('Reste à encaisser (toutes ventes)',fcfa(reste),1)+'</div>'+
+  '<div class="grid">'+t('Chiffre d’affaires',fcfa(ca),1)+t('Produits vendus',vp.reduce(function(a,v){return a+(v.qte||1)},0))+t('Encaissé',fcfa(enc))+t('Bénéfice brut',fcfa(brut))+t('Bénéfice après dépenses',fcfa(net))+t('Reste à encaisser (toutes ventes)',fcfa(reste),1)+'</div>'+
   '<p class="m">Brut = vente − prix d’achat. Après dépenses = brut − réparations et autres dépenses.</p>'+
   '<p class="gt">Alertes</p>';
  if(!vieux.length)h+=card('Aucune alerte','Aucun article n’est en stock depuis plus de '+SEUIL+' jours.');
@@ -361,15 +364,15 @@ function backupInit(){
   catch(e){msg('Sauvegarde impossible.',1)}
  };
  E('b-csvp').onclick=async function(){
-  try{var rows=[['ID','Type','Marque','Modèle','Caractéristiques','État','Numéro de série','IMEI 1','IMEI 2','Date d’achat','Fournisseur','Prix d’achat (FCFA)','Prix de vente prévu (FCFA)','Prix de vente réel (FCFA)','Dépenses (FCFA)','Coût de revient (FCFA)','Statut','Jours depuis l’achat']];
-   (await all()).forEach(function(p){rows.push([p.id,p.type==='pc'?'Ordinateur':'Téléphone',p.marque,p.modele,p.caract,p.etat,txt(p.serie),txt(p.imei1),txt(p.imei2),p.dateAchat,p.fournisseur,p.prixAchat||0,p.prixPrevu||0,p.prixReel||'',coutDe(p)-(p.prixAchat||0),coutDe(p),p.statut,jours(p)])});
+  try{var rows=[['ID','Type','Marque','Modèle','Caractéristiques','État','Numéro de série','IMEI 1','IMEI 2','Date d’achat','Fournisseur','Prix d’achat (FCFA)','Prix de vente prévu (FCFA)','Prix de vente réel (FCFA)','Dépenses (FCFA)','Coût de revient (FCFA)','Statut','Jours depuis l’achat','Quantité']];
+   (await all()).forEach(function(p){rows.push([p.id,({pc:'Ordinateur',enc:'Enceinte Bluetooth',chg:'Chargeur PC',con:'Console de jeux',bsn:'Boisson'})[p.type]||'Téléphone',p.marque,p.modele,p.caract,p.etat,txt(p.serie),txt(p.imei1),txt(p.imei2),p.dateAchat,p.fournisseur,p.prixAchat||0,p.prixPrevu||0,p.prixReel||'',coutDe(p)-(p.prixAchat||0),coutDe(p),p.statut,jours(p),p.type==='bsn'?(p.qte||0):1])});
    dl('zafnatech-produits-'+today()+'.csv','text/csv;charset=utf-8',csv(rows));msg('Fichier des produits créé.')}
   catch(e){msg('Export impossible.',1)}
  };
  E('b-csvv').onclick=async function(){
   try{var map={};(await all()).forEach(function(p){map[p.id]=p});
    var rows=[['ID','Date','Article','Client','Contact','Prix de vente (FCFA)','Coût de revient (FCFA)','Marge (FCFA)','Payé (FCFA)','Reste à payer (FCFA)','Détail des paiements']];
-   (await all('ventes')).forEach(function(v){var p=map[v.produitId],c=p?coutDe(p):v.cout;rows.push([v.id,v.date,v.nom,v.client,txt(v.contact),v.prix,c,v.prix-c,paye(v),v.prix-paye(v),v.paiements.map(function(x){return x.date+' '+x.mode+' '+x.montant}).join(' / ')])});
+   (await all('ventes')).forEach(function(v){var p=map[v.produitId],c=coutV(v,p);rows.push([v.id,v.date,v.nom+(v.qte?' × '+v.qte:''),v.client,txt(v.contact),v.prix,c,v.prix-c,paye(v),v.prix-paye(v),v.paiements.map(function(x){return x.date+' '+x.mode+' '+x.montant}).join(' / ')])});
    dl('zafnatech-ventes-'+today()+'.csv','text/csv;charset=utf-8',csv(rows));msg('Fichier des ventes créé.')}
   catch(e){msg('Export impossible.',1)}
  };
@@ -382,6 +385,9 @@ function backupInit(){
   E('b-ok').onclick=async function(){try{await restaurer(d);msg('Données restaurées : '+d.produits.length+' produit(s), '+d.ventes.length+' vente(s).')}catch(e){msg('Restauration impossible. Vos données actuelles n’ont pas été modifiées.',1)}};
  };
 }
+function isB(p){return p.type==='bsn'}
+function nb(p){return isB(p)?(p.qte||0):1}
+function coutV(v,p){return v.qte?v.cout:(p?coutDe(p):v.cout)}
 var tabs=[["bord","📊","Accueil"],["prod","📦","Produits"],["vent","🧾","Ventes"],["reg","⚙️","Réglages"]];
 function card(t,p){return'<div class="card"><h2>'+t+'</h2><p>'+p+'</p></div>'}
 var pages={
