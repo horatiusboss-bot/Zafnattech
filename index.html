@@ -67,6 +67,10 @@ nav button.on{color:var(--pri);font-weight:700;box-shadow:inset 0 3px 0 var(--ac
 </head>
 <body>
 <div id="app"></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
 <script>
 (function(){
 var app=document.getElementById("app");
@@ -144,16 +148,28 @@ function change3(first){
 /* ===== Étape 2 : produits ===== */
 var SEUIL=30,STATUTS=["En stock","Réservé","Vendu","Retourné","En réparation"],ETATS=["Neuf","Occasion – très bon état","Occasion – bon état","Pour pièces / à réparer"];
 var _db,filtre={q:"",s:""};
-function idb(){return _db||(_db=new Promise(function(ok,ko){var r=indexedDB.open("zafnatech",2);r.onupgradeneeded=function(){var d=r.result;["produits","ventes"].forEach(function(n){if(!d.objectStoreNames.contains(n))d.createObjectStore(n,{keyPath:"id",autoIncrement:true})})};r.onsuccess=function(){ok(r.result)};r.onerror=function(){ko(r.error)}}))}
-function tx(mode,fn,st){return idb().then(function(d){return new Promise(function(ok,ko){var t=d.transaction(st||"produits",mode),q=fn(t.objectStore(st||"produits"));t.oncomplete=function(){ok(q&&q.result)};t.onerror=function(){ko(t.error)}})})}
-function all(st){return tx("readonly",function(s){return s.getAll()},st)}
-function put(p,st){return tx("readwrite",function(s){return s.put(p)},st)}
-function del(id,st){return tx("readwrite",function(s){return s["delete"](id)},st)}
+var cfg=window.FIREBASE_CONFIG,fbOK=false,fdb=null,auth=null,uid=null;
+try{if(cfg&&cfg.apiKey){firebase.initializeApp(cfg);auth=firebase.auth();fdb=firebase.firestore();fdb.enablePersistence({synchronizeTabs:true}).catch(function(){});fbOK=true}}catch(e){fbOK=false}
+function col(st){return fdb.collection("comptes").doc(uid).collection(st||"produits")}
+function newId(){return Date.now()*100+Math.floor(Math.random()*100)}
+function clean(o){return JSON.parse(JSON.stringify(o))}
+function all(st){return col(st).get().then(function(s){return s.docs.map(function(d){return d.data()})})}
+function put(p,st){
+ if(!p.id)p.id=newId();
+ var r=col(st).doc(String(p.id)).set(clean(p));
+ if(navigator.onLine)return r.then(function(){return p.id});
+ r.catch(function(){});return Promise.resolve(p.id)
+}
+function del(id,st){
+ var r=col(st).doc(String(id)).delete();
+ if(navigator.onLine)return r;
+ r.catch(function(){});return Promise.resolve()
+}
 function E(i){return document.getElementById(i)}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function fcfa(n){return(Number(n)||0).toLocaleString("fr-FR")+" FCFA"}
 function jours(p){return p.dateAchat?Math.max(0,Math.floor((Date.now()-new Date(p.dateAchat).getTime())/864e5)):0}
-function reduire(f){return new Promise(function(ok,ko){var im=new Image(),fr=new FileReader();fr.onerror=ko;fr.onload=function(){im.src=fr.result};im.onload=function(){var k=Math.min(1,800/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=im.width*k;c.height=im.height*k;c.getContext("2d").drawImage(im,0,0,c.width,c.height);ok(c.toDataURL("image/jpeg",0.7))};im.onerror=ko;fr.readAsDataURL(f)})}
+function reduire(f){return new Promise(function(ok,ko){var im=new Image(),fr=new FileReader();fr.onerror=ko;fr.onload=function(){im.src=fr.result};im.onload=function(){var k=Math.min(1,640/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=im.width*k;c.height=im.height*k;c.getContext("2d").drawImage(im,0,0,c.width,c.height);ok(c.toDataURL("image/jpeg",0.6))};im.onerror=ko;fr.readAsDataURL(f)})}
 async function prodList(){
  var r=E("prod-root");if(!r)return;
  var list;
@@ -352,8 +368,23 @@ function dl(name,type,text){var b=new Blob([text],{type:type}),a=document.create
 function csv(rows){return '\uFEFF'+rows.map(function(r){return r.map(function(c){c=c==null?'':String(c);return'"'+c.replace(/"/g,'""')+'"'}).join(';')}).join('\r\n')}
 function txt(s){return s?'="'+s+'"':''}
 function rappel(n){var d=store.get('zt_bk');if(!n)return'';var j=d?Math.floor((Date.now()-new Date(d).getTime())/864e5):999;return j>7?'<div class="card"><h2>Pensez à sauvegarder</h2><p>'+(d?'Dernière sauvegarde il y a '+j+' jours.':'Vous n’avez encore jamais fait de sauvegarde.')+' Ouvrez Réglages pour en créer une.</p></div>':''}
-function backupUI(){var d=store.get('zt_bk');return'<div class="card"><h2>Sauvegarde et transfert</h2><p>Dernière sauvegarde : <b>'+(d?dfr(d):'jamais')+'</b>. Le fichier contient tous vos produits, photos et ventes, mais pas le PIN. Il n’est pas chiffré : gardez-le en lieu sûr. Pour changer de téléphone : créez une sauvegarde, envoyez-la-vous (e-mail, Drive), puis restaurez-la sur le nouveau téléphone.</p></div><button class="btn" id="b-save">💾 Créer une sauvegarde complète</button><button class="btn" id="b-rest">📥 Restaurer une sauvegarde</button><input type="file" id="b-file" accept=".json,application/json" hidden><button class="btn" id="b-csvp">📄 Exporter les produits (Excel/CSV)</button><button class="btn" id="b-csvv">📄 Exporter les ventes (Excel/CSV)</button><div class="sub" id="b-msg"></div>'}
-function restaurer(d){return idb().then(function(db){return new Promise(function(ok,ko){var t=db.transaction(['produits','ventes'],'readwrite'),a=t.objectStore('produits'),b=t.objectStore('ventes');a.clear();b.clear();d.produits.forEach(function(p){a.put(p)});d.ventes.forEach(function(v){b.put(v)});t.oncomplete=ok;t.onerror=function(){ko(t.error)};t.onabort=function(){ko(t.error)}})})}
+function backupUI(){var d=store.get('zt_bk'),u=auth&&auth.currentUser;return'<div class="card"><h2>Compte de la boutique</h2><p>Connecté : <b>'+esc(u?u.email:'')+'</b><br>Tous les téléphones connectés avec cet e-mail partagent les mêmes données.</p></div><button class="btn" id="b-out">Se déconnecter</button><div class="card"><h2>Sauvegarde et transfert</h2><p>Dernière sauvegarde : <b>'+(d?dfr(d):'jamais')+'</b>. Le fichier contient tous vos produits, photos et ventes, mais pas le PIN. Il n’est pas chiffré : gardez-le en lieu sûr. Pour changer de téléphone, connectez-vous simplement avec le même e-mail : les données sont dans le cloud. La sauvegarde reste utile en cas d’erreur.</p></div><button class="btn" id="b-save">💾 Créer une sauvegarde complète</button><button class="btn" id="b-rest">📥 Restaurer une sauvegarde</button><input type="file" id="b-file" accept=".json,application/json" hidden><button class="btn" id="b-csvp">📄 Exporter les produits (Excel/CSV)</button><button class="btn" id="b-csvv">📄 Exporter les ventes (Excel/CSV)</button><div class="sub" id="b-msg"></div>'}
+async function restaurer(d){
+ if(!navigator.onLine)throw new Error("hors ligne");
+ var ops=[];
+ (await all("produits")).forEach(function(x){ops.push(["d","produits",x])});
+ (await all("ventes")).forEach(function(x){ops.push(["d","ventes",x])});
+ d.produits.forEach(function(x){ops.push(["s","produits",x])});
+ d.ventes.forEach(function(x){ops.push(["s","ventes",x])});
+ for(var i=0;i<ops.length;i+=300){
+  var b=fdb.batch();
+  ops.slice(i,i+300).forEach(function(o){
+   if(o[0]==="d"){b.delete(col(o[1]).doc(String(o[2].id)))}
+   else{if(!o[2].id)o[2].id=newId();b.set(col(o[1]).doc(String(o[2].id)),clean(o[2]))}
+  });
+  await b.commit();
+ }
+}
 function backupInit(){
  if(!E('b-save'))return;
  function msg(t,er){var m=E('b-msg');m.textContent=t;m.className='sub'+(er?' err':'')}
@@ -376,6 +407,7 @@ function backupInit(){
    dl('zafnatech-ventes-'+today()+'.csv','text/csv;charset=utf-8',csv(rows));msg('Fichier des ventes créé.')}
   catch(e){msg('Export impossible.',1)}
  };
+ E('b-out').onclick=function(){auth.signOut()};
  E('b-rest').onclick=function(){E('b-file').click()};
  E('b-file').onchange=async function(){
   var f=this.files[0];this.value='';if(!f)return;
@@ -415,7 +447,28 @@ document.addEventListener("visibilitychange",function(){
  else if(unlocked&&Date.now()-hiddenAt>60000){lock()}
 });
 try{if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(function(){});if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
-if(saved())lock();else setup1();
+function fbErr(e){
+ var c=(e&&e.code)||"";
+ return({"auth/invalid-email":"Adresse e-mail invalide.","auth/user-not-found":"Aucun compte avec cet e-mail.","auth/wrong-password":"Mot de passe incorrect.","auth/invalid-credential":"E-mail ou mot de passe incorrect.","auth/email-already-in-use":"Ce compte existe déjà : utilisez « Se connecter ».","auth/weak-password":"Mot de passe trop court (6 caractères minimum).","auth/network-request-failed":"Pas de connexion internet.","auth/too-many-requests":"Trop d’essais. Réessayez plus tard.","auth/unauthorized-domain":"Domaine non autorisé dans Firebase."})[c]||("Connexion impossible ("+c+").");
+}
+function showLogin(msg){
+ unlocked=false;
+ app.innerHTML='<div class="lock" style="align-items:stretch;max-width:420px;margin:0 auto"><div class="logo" style="align-self:center">Z</div><h1 style="text-align:center">Zafnatech Stock</h1><p class="sub" id="l-m" style="text-align:center">'+(msg||"Connectez-vous avec l’e-mail de la boutique")+'</p><label class="f" style="text-align:left">E-mail<input class="in" id="l-e" type="email" autocomplete="username" inputmode="email"></label><label class="f" style="text-align:left">Mot de passe<input class="in" id="l-p" type="password" autocomplete="current-password"></label><button class="btn pri" id="l-in">Se connecter</button><button class="link" id="l-new">Première fois ? Créer le compte de la boutique</button></div>';
+ function go(create){
+  var e=E("l-e").value.trim(),p=E("l-p").value,m=E("l-m");
+  if(!e||!p){m.textContent="Saisissez l’e-mail et le mot de passe.";m.className="sub err";return}
+  if(busy)return;busy=true;m.textContent="Connexion…";m.className="sub";
+  (create?auth.createUserWithEmailAndPassword(e,p):auth.signInWithEmailAndPassword(e,p)).then(function(){busy=false},function(er){busy=false;m.textContent=fbErr(er);m.className="sub err"});
+ }
+ E("l-in").onclick=function(){go(false)};
+ E("l-new").onclick=function(){go(true)};
+}
+if(!fbOK){app.innerHTML='<div class="lock"><div class="logo">Z</div><h1>Cloud non configuré</h1><p class="sub">Impossible de démarrer le service en ligne. Vérifiez la connexion internet et le fichier firebase-config.js.</p></div>'}
+else auth.onAuthStateChanged(function(u){
+ if(u){uid=u.uid;if(saved())lock();else setup1()}
+ else{uid=null;showLogin()}
+});
+
 })();
 </script>
 </body>
