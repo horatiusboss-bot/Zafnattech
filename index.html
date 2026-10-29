@@ -148,9 +148,10 @@ function change3(first){
 /* ===== Étape 2 : produits ===== */
 var SEUIL=30,STATUTS=["En stock","Réservé","Vendu","Retourné","En réparation"],ETATS=["Neuf","Occasion – très bon état","Occasion – bon état","Pour pièces / à réparer"];
 var _db,filtre={q:"",s:""};
-var cfg=window.FIREBASE_CONFIG,fbOK=false,fdb=null,auth=null,uid=null;
+var cfg=window.FIREBASE_CONFIG,fbOK=false,fdb=null,auth=null,uid=null,dataUid=null,role='admin';
+function isAdmin(){return role==='admin'}
 try{if(cfg&&cfg.apiKey){firebase.initializeApp(cfg);auth=firebase.auth();fdb=firebase.firestore();fdb.enablePersistence({synchronizeTabs:true}).catch(function(){});fbOK=true}}catch(e){fbOK=false}
-function col(st){return fdb.collection("comptes").doc(uid).collection(st||"produits")}
+function col(st){return fdb.collection("comptes").doc(dataUid).collection(st||"produits")}
 function newId(){return Date.now()*100+Math.floor(Math.random()*100)}
 function clean(o){return JSON.parse(JSON.stringify(o))}
 function all(st){return col(st).get().then(function(s){return s.docs.map(function(d){return d.data()})})}
@@ -174,21 +175,22 @@ async function prodList(){
  var r=E("prod-root");if(!r)return;
  var list;
  try{list=await all()}catch(e){r.innerHTML=card("Stockage indisponible","Cette page ne peut pas enregistrer de données sur ce navigateur.");return}
- r.innerHTML='<button class="btn pri" id="p-add">+ Ajouter un produit</button><input class="in" id="p-q" type="search" placeholder="Rechercher marque, modèle, série, IMEI" value="'+esc(filtre.q)+'"><select class="in" id="p-s"><option value="">Tous les statuts</option>'+STATUTS.map(function(s){return'<option'+(filtre.s===s?" selected":"")+'>'+s+'</option>'}).join("")+'</select><div id="p-list"></div>';
+ r.innerHTML=(isAdmin()?'<button class="btn pri" id="p-add">+ Ajouter un produit</button>':'')+'<input class="in" id="p-q" type="search" placeholder="Rechercher marque, modèle, série, IMEI" value="'+esc(filtre.q)+'"><select class="in" id="p-t"><option value="">Tous les types</option>'+TYPES.map(function(t){return'<option value="'+t[0]+'"'+(filtre.t===t[0]?' selected':'')+'>'+t[1]+'</option>'}).join('')+'</select><select class="in" id="p-s"><option value="">Tous les statuts</option>'+STATUTS.map(function(s){return'<option'+(filtre.s===s?" selected":"")+'>'+s+'</option>'}).join("")+'</select><div id="p-list"></div>';
  function fill(){
   var q=filtre.q.toLowerCase();
-  var rows=list.filter(function(p){return(!filtre.s||p.statut===filtre.s)&&(!q||[p.marque,p.modele,p.serie,p.imei1,p.imei2].join(" ").toLowerCase().indexOf(q)>-1)}).sort(function(a,b){return b.id-a.id});
+  var rows=list.filter(function(p){return(!filtre.s||p.statut===filtre.s)&&(!filtre.t||p.type===filtre.t)&&(!q||[p.marque,p.modele,p.serie,p.imei1,p.imei2].join(" ").toLowerCase().indexOf(q)>-1)}).sort(function(a,b){return b.id-a.id});
   var h=rows.length?"":card(list.length?"Aucun résultat":"Aucun produit","Appuyez sur « Ajouter un produit » pour enregistrer votre premier article.");
   rows.forEach(function(p){
    var old=jours(p)>SEUIL&&(p.statut==="En stock"||p.statut==="Réservé");
-   h+='<div class="item" data-id="'+p.id+'">'+(p.photos&&p.photos[0]?'<img src="'+p.photos[0]+'" alt="">':'<div class="ph">'+(p.type==="tel"?"📱":p.type==="enc"?"🔊":p.type==="chg"?"🔌":p.type==="con"?"🎮":p.type==="bsn"?"🥤":"💻")+'</div>')+'<div><b>'+esc(p.marque)+' '+esc(p.modele)+'</b><p class="m">Achat : '+fcfa(p.prixAchat)+(p.type==="bsn"?' par unité, stock : '+(p.qte||0):"")+'</p><span class="tag">'+p.statut+'</span> '+(old?'<span class="tag warn">⚠ '+jours(p)+' jours en stock</span>':"")+'</div></div>';
+   h+='<div class="item" data-id="'+p.id+'">'+(p.photos&&p.photos[0]?'<img src="'+p.photos[0]+'" alt="">':'<div class="ph">'+(p.type==="tel"?"📱":p.type==="enc"?"🔊":p.type==="chg"?"🔌":p.type==="con"?"🎮":p.type==="bsn"?"🥤":"💻")+'</div>')+'<div><b>'+esc(p.marque)+' '+esc(p.modele)+'</b><p class="m">'+(isAdmin()?'Achat : '+fcfa(p.prixAchat):'Prix : '+fcfa(p.prixPrevu))+(p.type==="bsn"?' par unité, stock : '+(p.qte||0):"")+'</p><span class="tag">'+p.statut+'</span> '+(old?'<span class="tag warn">⚠ '+jours(p)+' jours en stock</span>':"")+'</div></div>';
   });
   E("p-list").innerHTML=h;
-  E("p-list").onclick=function(e){var it=e.target.closest(".item");if(it){var id=Number(it.getAttribute("data-id"));prodForm(list.filter(function(p){return p.id===id})[0])}};
+  E("p-list").onclick=function(e){var it=e.target.closest(".item");if(it&&isAdmin()){var id=Number(it.getAttribute("data-id"));prodForm(list.filter(function(p){return p.id===id})[0])}};
  }
  E("p-q").oninput=function(){filtre.q=this.value;fill()};
  E("p-s").onchange=function(){filtre.s=this.value;fill()};
- E("p-add").onclick=function(){prodForm()};
+ E("p-t").onchange=function(){filtre.t=this.value;fill()};
+ if(isAdmin())E("p-add").onclick=function(){prodForm()};
  fill();
 }
 function prodForm(p){
@@ -267,7 +269,7 @@ async function ventList(){
  if(!vs.length)h+=card('Aucune vente','Choisissez un article en stock pour enregistrer votre première vente.');
  vs.forEach(function(v){
   var p=map[v.produitId],m=v.prix-coutV(v,p),reste=v.prix-paye(v);
-  h+='<div class="item" data-id="'+v.id+'"><div><b>'+esc(v.nom)+(v.qte?' × '+v.qte:'')+'</b><p class="m">'+dfr(v.date)+(v.client?', '+esc(v.client):'')+'</p><p class="m">Vendu '+fcfa(v.prix)+', marge '+fcfa(m)+'</p>'+(reste>0?'<span class="tag warn">Reste à payer : '+fcfa(reste)+'</span>':'<span class="tag">Soldé</span>')+'</div></div>';
+  h+='<div class="item" data-id="'+v.id+'"><div><b>'+esc(v.nom)+(v.qte?' × '+v.qte:'')+'</b><p class="m">'+dfr(v.date)+(v.client?', '+esc(v.client):'')+'</p><p class="m">Vendu '+fcfa(v.prix)+(isAdmin()?', marge '+fcfa(m):'')+'</p>'+(reste>0?'<span class="tag warn">Reste à payer : '+fcfa(reste)+'</span>':'<span class="tag">Soldé</span>')+'</div></div>';
  });
  r.innerHTML=h;
  E('v-add').onclick=function(){ventForm(dispo)};
@@ -286,7 +288,7 @@ function ventForm(dispo){
   '<label class="f">Mode de paiement<select class="in" id="v-mode">'+modeOpts()+'</select></label>'+
   '<p class="sub err" id="f-err"></p><button class="btn pri" id="f-save">Enregistrer la vente</button><button class="btn" id="f-cx">Annuler</button>';
  function cur(){var id=Number(E('v-p').value);return dispo.filter(function(p){return p.id===id})[0]}
- function maj(){var p=cur(),b=isB(p),n=b?(Number(E('v-q').value)||0):1,px=(Number(E('v-prix').value)||0)*n,c=b?n*(p.prixAchat||0):coutDe(p);E('v-qg').style.display=b?'':'none';E('v-pl').textContent=b?'Prix de vente par unité (FCFA)':'Prix de vente réel (FCFA)';E('v-m').innerHTML=(b?'Total de la vente : <b>'+fcfa(px)+'</b><br>':'')+'Coût de revient : <b>'+fcfa(c)+'</b><br>Marge réelle : <b>'+fcfa(px-c)+'</b>';if(!enc)E('v-enc').value=px}
+ function maj(){var p=cur(),b=isB(p),n=b?(Number(E('v-q').value)||0):1,px=(Number(E('v-prix').value)||0)*n,c=b?n*(p.prixAchat||0):coutDe(p);E('v-qg').style.display=b?'':'none';E('v-pl').textContent=b?'Prix de vente par unité (FCFA)':'Prix de vente réel (FCFA)';E('v-m').innerHTML=(b?'Total de la vente : <b>'+fcfa(px)+'</b><br>':'')+(isAdmin()?'Coût de revient : <b>'+fcfa(c)+'</b><br>Marge réelle : <b>'+fcfa(px-c)+'</b>':'');if(!enc)E('v-enc').value=px}
  E('v-p').onchange=function(){E('v-prix').value=cur().prixPrevu||'';enc=false;maj()};
  E('v-prix').oninput=maj;E('v-q').oninput=maj;
  E('v-enc').oninput=function(){enc=true};
@@ -299,7 +301,7 @@ function ventForm(dispo){
   if(!(px>0))return ventErr('Indiquez le prix de vente réel.');
   if(en<0||en>px)return ventErr('Le montant encaissé doit être compris entre 0 et le prix de vente.');
   try{
-   await put({produitId:p.id,nom:p.marque+' '+p.modele,date:d,prix:px,cout:b?n*(p.prixAchat||0):coutDe(p),qte:b?n:0,client:E('v-c').value.trim(),contact:E('v-t').value.trim(),paiements:en>0?[{date:d,montant:en,mode:E('v-mode').value}]:[],creeLe:Date.now()},'ventes');
+   await put({produitId:p.id,type:p.type,nom:p.marque+' '+p.modele,date:d,prix:px,cout:b?n*(p.prixAchat||0):coutDe(p),qte:b?n:0,client:E('v-c').value.trim(),contact:E('v-t').value.trim(),paiements:en>0?[{date:d,montant:en,mode:E('v-mode').value}]:[],creeLe:Date.now()},'ventes');
    if(b){p.qte=(p.qte||0)-n;if(p.qte<=0)p.statut='Vendu'}else{p.statut='Vendu'}p.prixReel=b?Number(E('v-prix').value):px;p.dateVente=d;await put(p);
    ventList();
   }catch(e){ventErr('Enregistrement impossible. Vérifiez l’espace de stockage du téléphone.')}
@@ -310,19 +312,19 @@ function ventDetail(v,p){
  var sure=false;
  function draw(){
   var cout=coutV(v,p),reste=v.prix-paye(v);
-  E('vent-root').innerHTML='<h2 class="ft">'+esc(v.nom)+(v.qte?' × '+v.qte:'')+'</h2><div class="card"><p>Vente du '+dfr(v.date)+'</p>'+(v.client?'<p>Client : <b>'+esc(v.client)+'</b>'+(v.contact?', '+esc(v.contact):'')+'</p>':'')+'<p>Prix de vente : <b>'+fcfa(v.prix)+'</b></p><p>Coût de revient : <b>'+fcfa(cout)+'</b></p><p>Marge réelle : <b>'+fcfa(v.prix-cout)+'</b></p></div>'+
+  E('vent-root').innerHTML='<h2 class="ft">'+esc(v.nom)+(v.qte?' × '+v.qte:'')+'</h2><div class="card"><p>Vente du '+dfr(v.date)+'</p>'+(v.client?'<p>Client : <b>'+esc(v.client)+'</b>'+(v.contact?', '+esc(v.contact):'')+'</p>':'')+'<p>Prix de vente : <b>'+fcfa(v.prix)+'</b></p>'+(isAdmin()?'<p>Coût de revient : <b>'+fcfa(cout)+'</b></p><p>Marge réelle : <b>'+fcfa(v.prix-cout)+'</b></p>':'')+'</div>'+
    '<div class="card"><h2>Paiements</h2>'+(v.paiements.length?v.paiements.map(function(x){return'<div class="dl"><span>'+dfr(x.date)+', '+esc(x.mode)+'</span><b>'+fcfa(x.montant)+'</b></div>'}).join(''):'<p>Aucun paiement reçu.</p>')+'<p class="m">'+(reste>0?'Reste à payer : <b>'+fcfa(reste)+'</b>':'Vente soldée')+'</p></div>'+
    (reste>0?'<div class="card"><h2>Ajouter un paiement</h2><label class="f">Montant (FCFA)<input class="in" id="a-m" type="number" inputmode="numeric" value="'+reste+'"></label><label class="f">Mode de paiement<select class="in" id="a-mode">'+modeOpts()+'</select></label><button class="btn pri" id="a-add">Enregistrer le paiement</button></div>':'')+
-   '<p class="sub err" id="f-err"></p><button class="btn" id="f-cx">Retour à la liste</button><button class="btn dng" id="s-del">Annuler cette vente</button>';
+   '<p class="sub err" id="f-err"></p><button class="btn" id="f-cx">Retour à la liste</button><button class="btn pri" id="s-wa">Envoyer le reçu (WhatsApp)</button>'+(isAdmin()?'<button class="btn dng" id="s-del">Annuler cette vente</button>':'');
   E('f-cx').onclick=ventList;
-  var a=E('a-add');
+  E('s-wa').onclick=function(){recu(v,p)};var a=E('a-add');
   if(a)a.onclick=async function(){
    var m=Number(E('a-m').value);
    if(!(m>0)||m>reste)return ventErr('Le montant doit être compris entre 1 et '+reste+' FCFA.');
    v.paiements.push({date:today(),montant:m,mode:E('a-mode').value});
    try{await put(v,'ventes');draw()}catch(e){ventErr('Enregistrement impossible.')}
   };
-  E('s-del').onclick=async function(){
+  var sd=E('s-del');if(sd)sd.onclick=async function(){
    if(!sure){sure=true;this.textContent='Appuyez encore : le produit repasse « En stock »';return}
    await del(v.id,'ventes');
    if(p){if(v.qte)p.qte=(p.qte||0)+v.qte;p.statut='En stock';p.prixReel=null;p.dateVente=null;await put(p)}
@@ -351,24 +353,24 @@ async function bordInit(){
  function t(l,v,w){return'<div class="tile'+(w?' w2':'')+'"><span>'+l+'</span><b>'+v+'</b></div>'}
  var h='';
  if(!ps.length)h+=card('Bienvenue','Ajoutez votre premier produit dans l’onglet Produits : les chiffres s’afficheront ici.');
- h+=rappel(ps.length)+'<p class="gt">Stock</p><div class="grid">'+t('Articles en stock',nbS)+t('Valeur au prix d’achat',fcfa(val))+'</div>';
+ h+=(isAdmin()?rappel(ps.length):'')+'<p class="gt">Stock</p><div class="grid">'+t('Articles en stock',nbS)+(isAdmin()?t('Valeur au prix d’achat',fcfa(val)):'')+'</div>';
  var det=STATUTS.filter(function(s){return par[s]}).map(function(s){return s+' : '+par[s]}).join(', ');
  if(det)h+='<p class="m">'+det+'</p>';
  h+='<p class="gt">Ventes</p><select class="in" id="b-p" style="margin-bottom:10px"><option value="tout"'+(periode==='tout'?' selected':'')+'>Toutes les ventes</option><option value="mois"'+(periode==='mois'?' selected':'')+'>Ce mois-ci</option></select>'+
-  '<div class="grid">'+t('Chiffre d’affaires',fcfa(ca),1)+t('Produits vendus',vp.reduce(function(a,v){return a+(v.qte||1)},0))+t('Encaissé',fcfa(enc))+t('Bénéfice brut',fcfa(brut))+t('Bénéfice après dépenses',fcfa(net))+t('Reste à encaisser (toutes ventes)',fcfa(reste),1)+'</div>'+
+  '<div class="grid">'+t('Chiffre d’affaires',fcfa(ca),1)+t('Produits vendus',vp.reduce(function(a,v){return a+(v.qte||1)},0))+t('Encaissé',fcfa(enc))+(isAdmin()?t('Bénéfice brut',fcfa(brut))+t('Bénéfice après dépenses',fcfa(net)):'')+t('Reste à encaisser (toutes ventes)',fcfa(reste),1)+'</div>'+
   '<p class="m">Brut = vente − prix d’achat. Après dépenses = brut − réparations et autres dépenses.</p>'+
-  '<p class="gt">Alertes</p>';
+  (isAdmin()?'<button class="btn" id="b-rap">📈 Rapport mensuel par catégorie</button>':'')+'<p class="gt">Alertes</p>';
  if(!vieux.length)h+=card('Aucune alerte','Aucun article n’est en stock depuis plus de '+SEUIL+' jours.');
  else h+='<div class="card"><h2>'+vieux.length+' article'+(vieux.length>1?'s':'')+' en stock depuis plus de '+SEUIL+' jours</h2>'+vieux.slice(0,10).map(function(p){return'<div class="dl"><span>'+esc(p.marque+' '+p.modele)+'</span><b>'+jours(p)+' jours</b></div>'}).join('')+(vieux.length>10?'<p class="m">et '+(vieux.length-10)+' autres dans l’onglet Produits.</p>':'')+'</div>';
  r.innerHTML=h;
  E('b-p').onchange=function(){periode=this.value;bordInit()};
+ if(E('b-rap'))E('b-rap').onclick=function(){rapportInit()};
 }
 /* ===== Étape 5 : sauvegarde, export, transfert ===== */
 function dl(name,type,text){var b=new Blob([text],{type:type}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},3000)}
 function csv(rows){return '\uFEFF'+rows.map(function(r){return r.map(function(c){c=c==null?'':String(c);return'"'+c.replace(/"/g,'""')+'"'}).join(';')}).join('\r\n')}
 function txt(s){return s?'="'+s+'"':''}
 function rappel(n){var d=store.get('zt_bk');if(!n)return'';var j=d?Math.floor((Date.now()-new Date(d).getTime())/864e5):999;return j>7?'<div class="card"><h2>Pensez à sauvegarder</h2><p>'+(d?'Dernière sauvegarde il y a '+j+' jours.':'Vous n’avez encore jamais fait de sauvegarde.')+' Ouvrez Réglages pour en créer une.</p></div>':''}
-function backupUI(){var d=store.get('zt_bk'),u=auth&&auth.currentUser;return'<div class="card"><h2>Compte de la boutique</h2><p>Connecté : <b>'+esc(u?u.email:'')+'</b><br>Tous les téléphones connectés avec cet e-mail partagent les mêmes données.</p></div><button class="btn" id="b-out">Se déconnecter</button><div class="card"><h2>Sauvegarde et transfert</h2><p>Dernière sauvegarde : <b>'+(d?dfr(d):'jamais')+'</b>. Le fichier contient tous vos produits, photos et ventes, mais pas le PIN. Il n’est pas chiffré : gardez-le en lieu sûr. Pour changer de téléphone, connectez-vous simplement avec le même e-mail : les données sont dans le cloud. La sauvegarde reste utile en cas d’erreur.</p></div><button class="btn" id="b-save">💾 Créer une sauvegarde complète</button><button class="btn" id="b-rest">📥 Restaurer une sauvegarde</button><input type="file" id="b-file" accept=".json,application/json" hidden><button class="btn" id="b-csvp">📄 Exporter les produits (Excel/CSV)</button><button class="btn" id="b-csvv">📄 Exporter les ventes (Excel/CSV)</button><div class="sub" id="b-msg"></div>'}
 async function restaurer(d){
  if(!navigator.onLine)throw new Error("hors ligne");
  var ops=[];
@@ -386,6 +388,10 @@ async function restaurer(d){
  }
 }
 function backupInit(){
+ if(!E('b-out'))return;
+ E('b-out').onclick=function(){auth.signOut()};
+ E('b-pw').onclick=function(){var u=auth.currentUser;auth.sendPasswordResetEmail(u.email).then(function(){bmsg('E-mail envoyé à '+u.email+'. Ouvrez-le pour choisir un nouveau mot de passe.')},function(){bmsg('Envoi impossible. Vérifiez la connexion.',1)})};
+ empInit();
  if(!E('b-save'))return;
  function msg(t,er){var m=E('b-msg');m.textContent=t;m.className='sub'+(er?' err':'')}
  E('b-save').onclick=async function(){
@@ -420,6 +426,99 @@ function backupInit(){
 function isB(p){return p.type==='bsn'}
 function nb(p){return isB(p)?(p.qte||0):1}
 function coutV(v,p){return v.qte?v.cout:(p?coutDe(p):v.cout)}
+var TYPES=[['tel','Téléphones'],['pc','Ordinateurs'],['enc','Enceintes Bluetooth'],['chg','Chargeurs PC'],['con','Consoles de jeux'],['bsn','Boissons']];
+function tNom(t){for(var i=0;i<TYPES.length;i++)if(TYPES[i][0]===t)return TYPES[i][1];return'Autres'}
+function tile(l,v,w){return'<div class="tile'+(w?' w2':'')+'"><span>'+l+'</span><b>'+v+'</b></div>'}
+function bmsg(t,er){var m=E('b-msg');if(m){m.textContent=t;m.className='sub'+(er?' err':'')}}
+function recu(v,p){
+ var t='*Zafnatech – Reçu de vente*\nLomé, Togo\n\nDate : '+dfr(v.date)+'\nArticle : '+v.nom+(v.qte?' × '+v.qte:'');
+ if(p&&p.serie)t+='\nN° de série : '+p.serie;
+ if(p&&p.imei1)t+='\nIMEI 1 : '+p.imei1;
+ if(p&&p.imei2)t+='\nIMEI 2 : '+p.imei2;
+ var pay=paye(v);
+ t+='\n\nPrix : '+fcfa(v.prix)+'\nPayé : '+fcfa(pay);
+ if(v.prix-pay>0)t+='\nReste à payer : '+fcfa(v.prix-pay);
+ if(v.client)t+='\nClient : '+v.client;
+ t+='\n\nMerci de votre confiance !';
+ var n=(v.contact||'').replace(/\D/g,'');
+ if(n.indexOf('00')===0)n=n.slice(2);
+ else if(n.length===8)n='228'+n;
+ window.open('https://wa.me/'+n+'?text='+encodeURIComponent(t),'_blank');
+}
+async function rapportInit(m){
+ var r=E('bord-root');if(!r)return;
+ m=m||today().slice(0,7);
+ var ps,vs;
+ try{ps=await all();vs=await all('ventes')}catch(e){r.innerHTML=card('Stockage indisponible','Impossible de lire les données.');return}
+ var map={},g={},tot={n:0,ca:0,cout:0,enc:0};
+ ps.forEach(function(p){map[p.id]=p});
+ vs.filter(function(v){return v.date&&v.date.slice(0,7)===m}).forEach(function(v){
+  var p=map[v.produitId],t=v.type||(p&&p.type)||'autre',c=coutV(v,p),n=v.qte||1,x=g[t]||(g[t]={n:0,ca:0,cout:0});
+  x.n+=n;x.ca+=v.prix;x.cout+=c;
+  tot.n+=n;tot.ca+=v.prix;tot.cout+=c;tot.enc+=paye(v);
+ });
+ var keys=Object.keys(g).sort(function(a,b){return g[b].ca-g[a].ca});
+ var h='<h2 class="ft">Rapport mensuel</h2><label class="f">Mois<input class="in" id="r-m" type="month" value="'+m+'"></label>';
+ if(!keys.length)h+=card('Aucune vente','Aucune vente enregistrée pour ce mois.');
+ else{
+  h+='<div class="grid">'+tile('Chiffre d’affaires',fcfa(tot.ca),1)+tile('Articles vendus',tot.n)+tile('Encaissé',fcfa(tot.enc))+tile('Bénéfice après dépenses',fcfa(tot.ca-tot.cout),1)+'</div><p class="gt">Par catégorie</p>';
+  keys.forEach(function(k){var x=g[k],b=x.ca-x.cout;h+='<div class="card"><h2>'+tNom(k)+'</h2><p>'+x.n+' vendu(s), chiffre d’affaires : '+fcfa(x.ca)+'<br>Bénéfice : <b>'+fcfa(b)+'</b>'+(x.ca>0?' ('+Math.round(b*100/x.ca)+' %)':'')+'</p></div>'});
+  h+='<button class="btn" id="r-csv">📄 Exporter ce rapport (CSV)</button>';
+ }
+ h+='<button class="btn" id="r-back">← Retour au tableau de bord</button>';
+ r.innerHTML=h;
+ E('r-m').onchange=function(){rapportInit(this.value||undefined)};
+ E('r-back').onclick=function(){bordInit()};
+ var c=E('r-csv');
+ if(c)c.onclick=function(){
+  var rows=[['Catégorie','Articles vendus','Chiffre d’affaires (FCFA)','Coût de revient (FCFA)','Bénéfice (FCFA)']];
+  keys.forEach(function(k){var x=g[k];rows.push([tNom(k),x.n,x.ca,x.cout,x.ca-x.cout])});
+  rows.push(['TOTAL',tot.n,tot.ca,tot.cout,tot.ca-tot.cout]);
+  dl('zafnatech-rapport-'+m+'.csv','text/csv;charset=utf-8',csv(rows));
+ };
+ window.scrollTo(0,0);
+}
+function empUI(){
+ return'<div class="card"><h2>Employés (vendeurs)</h2><p>Chaque employé a son propre e-mail et mot de passe. Un vendeur peut enregistrer des ventes et des paiements, mais l’application lui cache les prix d’achat, les bénéfices, les sauvegardes et les exports.</p><div id="e-list"></div></div><label class="f">Nom de l’employé<input class="in" id="e-n"></label><label class="f">E-mail de l’employé<input class="in" id="e-e" type="email" inputmode="email"></label><label class="f">Mot de passe provisoire (6 caractères minimum)<input class="in" id="e-p" type="text" autocomplete="off"></label><button class="btn pri" id="e-add">Créer le compte employé</button>';
+}
+async function empInit(){
+ if(!E('e-add'))return;
+ async function liste(){
+  try{
+   var s=await fdb.collection('membres').where('owner','==',uid).get();
+   E('e-list').innerHTML=s.docs.length?s.docs.map(function(d){var x=d.data();return'<div class="dl"><span>'+esc(x.nom||'')+' ('+esc(x.email||'')+')</span><button data-id="'+d.id+'">Retirer</button></div>'}).join(''):'<p class="m">Aucun employé pour le moment.</p>';
+  }catch(e){E('e-list').innerHTML='<p class="m">Liste indisponible. Vérifiez que les nouvelles règles Firestore sont publiées.</p>'}
+ }
+ liste();
+ E('e-list').onclick=async function(e){
+  var id=e.target.getAttribute('data-id');if(!id)return;
+  if(e.target.getAttribute('data-sure')!=='1'){e.target.setAttribute('data-sure','1');e.target.textContent='Confirmer';return}
+  try{await fdb.collection('membres').doc(id).delete();bmsg('Accès retiré.')}catch(er){bmsg('Suppression impossible.',1)}
+  liste();
+ };
+ E('e-add').onclick=async function(){
+  var n=E('e-n').value.trim(),m=E('e-e').value.trim(),p=E('e-p').value;
+  if(!n||!m||p.length<6)return bmsg('Indiquez le nom, l’e-mail et un mot de passe de 6 caractères minimum.',1);
+  if(busy)return;busy=true;bmsg('Création du compte…');
+  try{
+   var sec=firebase.apps.filter(function(a){return a.name==='sec'})[0]||firebase.initializeApp(cfg,'sec');
+   var cr=await sec.auth().createUserWithEmailAndPassword(m,p);
+   var nid=cr.user.uid;
+   await sec.auth().signOut();
+   await fdb.collection('membres').doc(nid).set({owner:uid,role:'vendeur',nom:n,email:m});
+   E('e-n').value='';E('e-e').value='';E('e-p').value='';
+   bmsg('Compte créé pour '+n+'. Donnez-lui l’adresse de l’application, son e-mail et ce mot de passe provisoire.');
+   liste();
+  }catch(er){bmsg(er&&er.code==='auth/email-already-in-use'?'Cet e-mail a déjà un compte.':fbErr(er),1)}
+  busy=false;
+ };
+}
+function backupUI(){
+ var d=store.get('zt_bk'),u=auth&&auth.currentUser;
+ var h='<div class="card"><h2>Mon compte</h2><p>Connecté : <b>'+esc(u?u.email:'')+'</b><br>Rôle : <b>'+(isAdmin()?'Propriétaire':'Vendeur')+'</b></p></div><button class="btn" id="b-pw">🔑 Changer mon mot de passe (par e-mail)</button><button class="btn" id="b-out">Se déconnecter</button>';
+ if(!isAdmin())return h+'<div class="sub" id="b-msg"></div>';
+ return h+empUI()+'<div class="card"><h2>Sauvegarde et transfert</h2><p>Dernière sauvegarde : <b>'+(d?dfr(d):'jamais')+'</b>. Le fichier contient tous vos produits, photos et ventes, mais pas le PIN. Il n’est pas chiffré : gardez-le en lieu sûr. Les données sont dans le cloud : pour changer de téléphone, connectez-vous simplement avec le même e-mail. La sauvegarde reste utile en cas d’erreur.</p></div><button class="btn" id="b-save">💾 Créer une sauvegarde complète</button><button class="btn" id="b-rest">📥 Restaurer une sauvegarde</button><input type="file" id="b-file" accept=".json,application/json" hidden><button class="btn" id="b-csvp">📄 Exporter les produits (Excel/CSV)</button><button class="btn" id="b-csvv">📄 Exporter les ventes (Excel/CSV)</button><div class="sub" id="b-msg"></div>';
+}
 var tabs=[["bord","📊","Accueil"],["prod","📦","Produits"],["vent","🧾","Ventes"],["reg","⚙️","Réglages"]];
 function card(t,p){return'<div class="card"><h2>'+t+'</h2><p>'+p+'</p></div>'}
 var pages={
@@ -453,7 +552,7 @@ function fbErr(e){
 }
 function showLogin(msg){
  unlocked=false;
- app.innerHTML='<div class="lock" style="align-items:stretch;max-width:420px;margin:0 auto"><div class="logo" style="align-self:center">Z</div><h1 style="text-align:center">Zafnatech Stock</h1><p class="sub" id="l-m" style="text-align:center">'+(msg||"Connectez-vous avec l’e-mail de la boutique")+'</p><label class="f" style="text-align:left">E-mail<input class="in" id="l-e" type="email" autocomplete="username" inputmode="email"></label><label class="f" style="text-align:left">Mot de passe<input class="in" id="l-p" type="password" autocomplete="current-password"></label><button class="btn pri" id="l-in">Se connecter</button><button class="link" id="l-new">Première fois ? Créer le compte de la boutique</button></div>';
+ app.innerHTML='<div class="lock" style="align-items:stretch;max-width:420px;margin:0 auto"><div class="logo" style="align-self:center">Z</div><h1 style="text-align:center">Zafnatech Stock</h1><p class="sub" id="l-m" style="text-align:center">'+(msg||"Connectez-vous avec l’e-mail de la boutique")+'</p><label class="f" style="text-align:left">E-mail<input class="in" id="l-e" type="email" autocomplete="username" inputmode="email"></label><label class="f" style="text-align:left">Mot de passe<input class="in" id="l-p" type="password" autocomplete="current-password"></label><button class="btn pri" id="l-in">Se connecter</button><button class="link" id="l-new">Propriétaire, première fois ? Créer le compte</button></div>';
  function go(create){
   var e=E("l-e").value.trim(),p=E("l-p").value,m=E("l-m");
   if(!e||!p){m.textContent="Saisissez l’e-mail et le mot de passe.";m.className="sub err";return}
@@ -465,8 +564,19 @@ function showLogin(msg){
 }
 if(!fbOK){app.innerHTML='<div class="lock"><div class="logo">Z</div><h1>Cloud non configuré</h1><p class="sub">Impossible de démarrer le service en ligne. Vérifiez la connexion internet et le fichier firebase-config.js.</p></div>'}
 else auth.onAuthStateChanged(function(u){
- if(u){uid=u.uid;if(saved())lock();else setup1()}
- else{uid=null;showLogin()}
+ if(!u){uid=null;dataUid=null;role='admin';showLogin();return}
+ uid=u.uid;
+ function go(o,r){dataUid=o;role=r;if(saved())lock();else setup1()}
+ fdb.collection('membres').doc(u.uid).get().then(function(d){
+  var o=d.exists?d.data().owner:u.uid,r=d.exists?(d.data().role||'vendeur'):'admin';
+  store.set('zt_acc',JSON.stringify({u:u.uid,o:o,r:r}));
+  go(o,r);
+ }).catch(function(e){
+  var c=null;try{c=JSON.parse(store.get('zt_acc'))}catch(x){}
+  if(c&&c.u===u.uid)go(c.o,c.r);
+  else if(e&&e.code==='permission-denied')go(u.uid,'admin');
+  else app.innerHTML='<div class="lock"><div class="logo">Z</div><h1>Connexion impossible</h1><p class="sub">Impossible de vérifier votre compte. Vérifiez internet puis rouvrez l’application.</p></div>';
+ });
 });
 
 })();
