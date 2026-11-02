@@ -479,8 +479,9 @@ async function rapportInit(m){
  window.scrollTo(0,0);
 }
 function empUI(){
- return'<div class="card"><h2>Employés (vendeurs)</h2><p>Chaque employé a son propre e-mail et mot de passe. Un vendeur peut enregistrer des ventes et des paiements, mais l’application lui cache les prix d’achat, les bénéfices, les sauvegardes et les exports.</p><div id="e-list"></div></div><label class="f">Nom de l’employé<input class="in" id="e-n"></label><label class="f">E-mail de l’employé<input class="in" id="e-e" type="email" inputmode="email"></label><label class="f">Mot de passe provisoire (6 caractères minimum)<input class="in" id="e-p" type="text" autocomplete="off"></label><button class="btn pri" id="e-add">Créer le compte employé</button>';
+ return'<div class="card"><h2>Employés (vendeurs)</h2><p>Chaque employé a son propre e-mail et mot de passe. Un vendeur peut enregistrer des ventes et des paiements, mais l’application lui cache les prix d’achat, les bénéfices, les sauvegardes et les exports.</p><div id="e-list"></div></div><label class="f">Nom de l’employé<input class="in" id="e-n"></label><label class="f">E-mail de l’employé<input class="in" id="e-e" type="email" inputmode="email"></label><label class="f">Mot de passe provisoire (6 caractères minimum)<input class="in" id="e-p" type="text" autocomplete="off"></label><button class="btn pri" id="e-add">Créer le compte employé</button><div class="sub" id="e-msg"></div>';
 }
+function emsg(t,er){var m=E('e-msg');if(m){m.textContent=t;m.className='sub'+(er?' err':'');m.scrollIntoView({block:'center'})}}
 async function empInit(){
  if(!E('e-add'))return;
  async function liste(){
@@ -493,23 +494,35 @@ async function empInit(){
  E('e-list').onclick=async function(e){
   var id=e.target.getAttribute('data-id');if(!id)return;
   if(e.target.getAttribute('data-sure')!=='1'){e.target.setAttribute('data-sure','1');e.target.textContent='Confirmer';return}
-  try{await fdb.collection('membres').doc(id).delete();bmsg('Accès retiré.')}catch(er){bmsg('Suppression impossible.',1)}
+  try{await fdb.collection('membres').doc(id).delete();emsg('Accès retiré.')}catch(er){emsg('Suppression impossible.',1)}
   liste();
  };
  E('e-add').onclick=async function(){
-  var n=E('e-n').value.trim(),m=E('e-e').value.trim(),p=E('e-p').value;
-  if(!n||!m||p.length<6)return bmsg('Indiquez le nom, l’e-mail et un mot de passe de 6 caractères minimum.',1);
-  if(busy)return;busy=true;bmsg('Création du compte…');
+  var n=E('e-n').value.trim(),m=E('e-e').value.trim(),p=E('e-p').value,step='compte';
+  if(!n||!m||p.length<6)return emsg('Indiquez le nom, l’e-mail et un mot de passe de 6 caractères minimum.',1);
+  if(m.toLowerCase()===((auth.currentUser&&auth.currentUser.email)||'').toLowerCase())return emsg('Utilisez l’e-mail de l’employé, pas le vôtre.',1);
+  if(busy)return;busy=true;emsg('Création du compte…');
   try{
    var sec=firebase.apps.filter(function(a){return a.name==='sec'})[0]||firebase.initializeApp(cfg,'sec');
-   var cr=await sec.auth().createUserWithEmailAndPassword(m,p);
-   var nid=cr.user.uid;
+   var nid;
+   try{nid=(await sec.auth().createUserWithEmailAndPassword(m,p)).user.uid}
+   catch(er){
+    if(er&&er.code==='auth/email-already-in-use'){
+     try{nid=(await sec.auth().signInWithEmailAndPassword(m,p)).user.uid}
+     catch(e2){throw {code:'deja'}}
+    }else throw er;
+   }
    await sec.auth().signOut();
+   if(nid===uid)throw {code:'moi'};
+   step='acces';
    await fdb.collection('membres').doc(nid).set({owner:uid,role:'vendeur',nom:n,email:m});
    E('e-n').value='';E('e-e').value='';E('e-p').value='';
-   bmsg('Compte créé pour '+n+'. Donnez-lui l’adresse de l’application, son e-mail et ce mot de passe provisoire.');
+   emsg('Compte créé pour '+n+'. Donnez-lui l’adresse de l’application, son e-mail et ce mot de passe provisoire.');
    liste();
-  }catch(er){bmsg(er&&er.code==='auth/email-already-in-use'?'Cet e-mail a déjà un compte.':fbErr(er),1)}
+  }catch(er){
+   var c=er&&er.code;
+   emsg(c==='deja'?'Cet e-mail a déjà un compte avec un autre mot de passe. Utilisez une autre adresse, ou le mot de passe choisi lors de la première tentative.':c==='moi'?'Utilisez l’e-mail de l’employé, pas le vôtre.':step==='acces'?'Le compte existe mais l’accès n’a pas pu être enregistré ('+(c||'erreur')+'). Vérifiez que les règles Firestore sont publiées, puis réessayez avec les mêmes informations.':fbErr(er),1);
+  }
   busy=false;
  };
 }
