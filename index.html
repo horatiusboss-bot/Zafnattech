@@ -201,7 +201,7 @@ function prodForm(p){
  function inp(l,id,v,t,x){return'<label class="f">'+l+'<input class="in" id="'+id+'" type="'+(t||"text")+'" value="'+esc(v)+'" '+(x||"")+'></label>'}
  var im='inputmode="numeric" maxlength="15"',nu='inputmode="numeric" min="0"';
  E("prod-root").innerHTML='<h2 class="ft">'+(nw?"Nouveau produit":"Modifier le produit")+'</h2>'+
-  sel("Type","f-type",[["tel","Téléphone"],["pc","Ordinateur portable"],["enc","Enceinte Bluetooth"],["chg","Chargeur PC"],["con","Console de jeux"],["bsn","Boisson"],["ovb","Overboard"],["div","Divers"],["csf","Casque filaire"],["csb","Casque sans fil"]],p.type)+
+  sel("Type","f-type",[["tel","Téléphone"],["pc","Ordinateur portable"],["enc","Enceinte Bluetooth"],["chg","Chargeur PC"],["con","Console de jeux"],["bsn","Boisson"],["ovb","Overboard"],["div","Divers"],["csf","Casque filaire"],["csb","Casque sans fil"]],p.type)+(nw?'':'<p class="m" style="margin:-6px 0 14px">Produit classé par erreur ? Changez le type ci-dessus puis enregistrez. L’historique des ventes suit le produit. Les champs propres à l’ancienne catégorie (IMEI, numéro de série, quantité) sont effacés si la nouvelle catégorie ne les utilise pas.</p>')+
   inp("Marque","f-marque",p.marque)+inp("Modèle","f-modele",p.modele)+
   '<label class="f">Caractéristiques (RAM, stockage, puissance, volume, autonomie…)<textarea class="in" id="f-caract" rows="3">'+esc(p.caract)+'</textarea></label>'+
   sel("État","f-etat",ETATS,p.etat)+
@@ -235,6 +235,7 @@ function prodForm(p){
   function er(m){var e=E("f-err");e.textContent=m;e.scrollIntoView({block:"center"})}
   var o=Object.assign({},p,{type:g("f-type"),marque:g("f-marque"),modele:g("f-modele"),caract:g("f-caract"),etat:g("f-etat"),serie:g("f-serie"),imei1:g("f-imei1"),imei2:g("f-imei2"),dateAchat:g("f-date"),fournisseur:g("f-four"),prixAchat:Number(g("f-pa"))||0,prixPrevu:Number(g("f-pp"))||0,statut:g("f-statut"),photos:ph,depenses:dep});
   if(o.type!=="tel"){o.imei1="";o.imei2=""}else{o.serie=""}
+  if(["bsn","div","csf","csb"].indexOf(o.type)<0)delete o.qte;
   if(["bsn","div","csf","csb"].indexOf(o.type)>-1){o.serie="";o.depenses=[];o.etat="Neuf";o.qte=Math.floor(Number(g("f-qte"))||0)}
   if(!o.marque||!o.modele)return er("Indiquez la marque et le modèle.");
   if(!o.dateAchat)return er("Indiquez la date d’achat.");
@@ -244,8 +245,17 @@ function prodForm(p){
    var cles=[o.serie,o.imei1,o.imei2].filter(Boolean),autres=await all();
    var dup=autres.filter(function(q){return q.id!==o.id&&[q.serie,q.imei1,q.imei2].some(function(k){return k&&cles.indexOf(k)>-1})})[0];
    if(dup)return er("Ce numéro est déjà enregistré pour : "+dup.marque+" "+dup.modele+".");
+   if(!nw&&p.type!==o.type){
+    var QT=["bsn","div","csf","csb"];
+    if((QT.indexOf(p.type)>-1)!==(QT.indexOf(o.type)>-1)){
+     var vv=(await all("ventes")).filter(function(v){return v.produitId===p.id});
+     if(vv.length)return er("Ce produit a déjà des ventes : choisissez une catégorie du même genre (à l’unité vers à l’unité, ou par quantité vers par quantité).");
+    }
+   }
    if(nw)o.creeLe=Date.now();
-   await put(o);prodList();
+   await put(o);
+   if(!nw&&p.type!==o.type){var vs=(await all("ventes")).filter(function(v){return v.produitId===o.id});for(var i=0;i<vs.length;i++){vs[i].type=o.type;await put(vs[i],"ventes")}}
+   prodList();
   }catch(e){er("Enregistrement impossible. Vérifiez l’espace de stockage du téléphone.")}
  };
  window.scrollTo(0,0);
