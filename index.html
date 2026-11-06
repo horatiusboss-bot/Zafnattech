@@ -182,7 +182,7 @@ async function prodList(){
   var h=rows.length?"":card(list.length?"Aucun résultat":"Aucun produit","Appuyez sur « Ajouter un produit » pour enregistrer votre premier article.");
   rows.forEach(function(p){
    var old=jours(p)>SEUIL&&(p.statut==="En stock"||p.statut==="Réservé");
-   h+='<div class="item" data-id="'+p.id+'">'+(p.photos&&p.photos[0]?'<img src="'+p.photos[0]+'" alt="">':'<div class="ph">'+(p.type==="tel"?"📱":p.type==="enc"?"🔊":p.type==="chg"?"🔌":p.type==="con"?"🎮":p.type==="bsn"?"🥤":p.type==="ovb"?"🛴":p.type==="div"?"📦":"💻")+'</div>')+'<div><b>'+esc(p.marque)+' '+esc(p.modele)+'</b><p class="m">'+(isAdmin()?'Achat : '+fcfa(p.prixAchat):'Prix : '+fcfa(p.prixPrevu))+(isB(p)?' par unité, stock : '+(p.qte||0):"")+'</p><span class="tag">'+p.statut+'</span> '+(old?'<span class="tag warn">⚠ '+jours(p)+' jours en stock</span>':"")+'</div></div>';
+   h+='<div class="item" data-id="'+p.id+'">'+(p.photos&&p.photos[0]?'<img src="'+p.photos[0]+'" alt="">':'<div class="ph">'+(p.type==="tel"?"📱":p.type==="enc"?"🔊":p.type==="chg"?"🔌":p.type==="con"?"🎮":p.type==="bsn"?"🥤":p.type==="ovb"?"🛴":p.type==="div"?"📦":(p.type==="csf"||p.type==="csb")?"🎧":"💻")+'</div>')+'<div><b>'+esc(p.marque)+' '+esc(p.modele)+'</b><p class="m">'+(isAdmin()?'Achat : '+fcfa(p.prixAchat):'Prix : '+fcfa(p.prixPrevu))+(isB(p)?' par unité, stock : '+(p.qte||0):"")+'</p><span class="tag">'+p.statut+'</span> '+(old?'<span class="tag warn">⚠ '+jours(p)+' jours en stock</span>':"")+'</div></div>';
   });
   E("p-list").innerHTML=h;
   E("p-list").onclick=function(e){var it=e.target.closest(".item");if(it&&isAdmin()){var id=Number(it.getAttribute("data-id"));prodForm(list.filter(function(p){return p.id===id})[0])}};
@@ -201,7 +201,7 @@ function prodForm(p){
  function inp(l,id,v,t,x){return'<label class="f">'+l+'<input class="in" id="'+id+'" type="'+(t||"text")+'" value="'+esc(v)+'" '+(x||"")+'></label>'}
  var im='inputmode="numeric" maxlength="15"',nu='inputmode="numeric" min="0"';
  E("prod-root").innerHTML='<h2 class="ft">'+(nw?"Nouveau produit":"Modifier le produit")+'</h2>'+
-  sel("Type","f-type",[["tel","Téléphone"],["pc","Ordinateur portable"],["enc","Enceinte Bluetooth"],["chg","Chargeur PC"],["con","Console de jeux"],["bsn","Boisson"],["ovb","Overboard"],["div","Divers"]],p.type)+
+  sel("Type","f-type",[["tel","Téléphone"],["pc","Ordinateur portable"],["enc","Enceinte Bluetooth"],["chg","Chargeur PC"],["con","Console de jeux"],["bsn","Boisson"],["ovb","Overboard"],["div","Divers"],["csf","Casque filaire"],["csb","Casque sans fil"]],p.type)+
   inp("Marque","f-marque",p.marque)+inp("Modèle","f-modele",p.modele)+
   '<label class="f">Caractéristiques (RAM, stockage, puissance, volume, autonomie…)<textarea class="in" id="f-caract" rows="3">'+esc(p.caract)+'</textarea></label>'+
   sel("État","f-etat",ETATS,p.etat)+
@@ -215,7 +215,7 @@ function prodForm(p){
   '<p class="sub err" id="f-err"></p><button class="btn pri" id="f-save">Enregistrer</button><button class="btn" id="f-cx">Annuler</button>'+(nw?"":'<button class="btn dng" id="f-del">Supprimer ce produit</button>');
  function drawPh(){E("f-ph").innerHTML=ph.map(function(s,i){return'<div class="th"><img src="'+s+'" alt=""><button data-i="'+i+'" aria-label="Retirer la photo">×</button></div>'}).join("")}
  function drawDep(){var t=Number(E("f-pa").value)||0;dep.forEach(function(d){t+=d.montant});E("f-dep").innerHTML=dep.map(function(d,i){return'<div class="dl"><span>'+esc(d.label)+'</span><b>'+fcfa(d.montant)+'</b><button data-i="'+i+'" aria-label="Retirer la dépense">×</button></div>'}).join("")+'<p class="m">Coût de revient (achat + dépenses) : <b>'+fcfa(t)+'</b></p>'}
- function tg(){var t=E("f-type").value,b=t==="bsn"||t==="div";E("g-pc").style.display=(t==="tel"||b)?"none":"";E("g-tel").style.display=t==="tel"?"":"none";E("g-bsn").style.display=b?"":"none";E("g-dep").style.display=b?"none":"";E("f-etat").parentNode.style.display=b?"none":"";E("f-pa").parentNode.firstChild.nodeValue=b?"Prix d’achat par unité (FCFA)":"Prix d’achat (FCFA)";E("f-pp").parentNode.firstChild.nodeValue=b?"Prix de vente prévu par unité (FCFA)":"Prix de vente prévu (FCFA)"}
+ function tg(){var t=E("f-type").value,b=["bsn","div","csf","csb"].indexOf(t)>-1;E("g-pc").style.display=(t==="tel"||b)?"none":"";E("g-tel").style.display=t==="tel"?"":"none";E("g-bsn").style.display=b?"":"none";E("g-dep").style.display=b?"none":"";E("f-etat").parentNode.style.display=b?"none":"";E("f-pa").parentNode.firstChild.nodeValue=b?"Prix d’achat par unité (FCFA)":"Prix d’achat (FCFA)";E("f-pp").parentNode.firstChild.nodeValue=b?"Prix de vente prévu par unité (FCFA)":"Prix de vente prévu (FCFA)"}
  E("f-type").onchange=tg;E("f-pa").oninput=drawDep;tg();drawPh();drawDep();
  E("f-ph").onclick=function(e){var i=e.target.getAttribute("data-i");if(i!==null){ph.splice(Number(i),1);drawPh()}};
  E("f-dep").onclick=function(e){var i=e.target.getAttribute("data-i");if(i!==null){dep.splice(Number(i),1);drawDep()}};
@@ -235,10 +235,10 @@ function prodForm(p){
   function er(m){var e=E("f-err");e.textContent=m;e.scrollIntoView({block:"center"})}
   var o=Object.assign({},p,{type:g("f-type"),marque:g("f-marque"),modele:g("f-modele"),caract:g("f-caract"),etat:g("f-etat"),serie:g("f-serie"),imei1:g("f-imei1"),imei2:g("f-imei2"),dateAchat:g("f-date"),fournisseur:g("f-four"),prixAchat:Number(g("f-pa"))||0,prixPrevu:Number(g("f-pp"))||0,statut:g("f-statut"),photos:ph,depenses:dep});
   if(o.type!=="tel"){o.imei1="";o.imei2=""}else{o.serie=""}
-  if(o.type==="bsn"||o.type==="div"){o.serie="";o.depenses=[];o.etat="Neuf";o.qte=Math.floor(Number(g("f-qte"))||0)}
+  if(["bsn","div","csf","csb"].indexOf(o.type)>-1){o.serie="";o.depenses=[];o.etat="Neuf";o.qte=Math.floor(Number(g("f-qte"))||0)}
   if(!o.marque||!o.modele)return er("Indiquez la marque et le modèle.");
   if(!o.dateAchat)return er("Indiquez la date d’achat.");
-  if((o.type==="bsn"||o.type==="div")&&g("f-qte")==="")return er("Indiquez la quantité en stock.");
+  if(["bsn","div","csf","csb"].indexOf(o.type)>-1&&g("f-qte")==="")return er("Indiquez la quantité en stock.");
   if((o.imei1&&!/^\d{15}$/.test(o.imei1))||(o.imei2&&!/^\d{15}$/.test(o.imei2)))return er("Un IMEI contient exactement 15 chiffres.");
   try{
    var cles=[o.serie,o.imei1,o.imei2].filter(Boolean),autres=await all();
@@ -402,7 +402,7 @@ function backupInit(){
  };
  E('b-csvp').onclick=async function(){
   try{var rows=[['ID','Type','Marque','Modèle','Caractéristiques','État','Numéro de série','IMEI 1','IMEI 2','Date d’achat','Fournisseur','Prix d’achat (FCFA)','Prix de vente prévu (FCFA)','Prix de vente réel (FCFA)','Dépenses (FCFA)','Coût de revient (FCFA)','Statut','Jours depuis l’achat','Quantité']];
-   (await all()).forEach(function(p){rows.push([p.id,({pc:'Ordinateur',enc:'Enceinte Bluetooth',chg:'Chargeur PC',con:'Console de jeux',bsn:'Boisson',ovb:'Overboard',div:'Divers'})[p.type]||'Téléphone',p.marque,p.modele,p.caract,p.etat,txt(p.serie),txt(p.imei1),txt(p.imei2),p.dateAchat,p.fournisseur,p.prixAchat||0,p.prixPrevu||0,p.prixReel||'',coutDe(p)-(p.prixAchat||0),coutDe(p),p.statut,jours(p),isB(p)?(p.qte||0):1])});
+   (await all()).forEach(function(p){rows.push([p.id,({pc:'Ordinateur',enc:'Enceinte Bluetooth',chg:'Chargeur PC',con:'Console de jeux',bsn:'Boisson',ovb:'Overboard',div:'Divers',csf:'Casque filaire',csb:'Casque sans fil'})[p.type]||'Téléphone',p.marque,p.modele,p.caract,p.etat,txt(p.serie),txt(p.imei1),txt(p.imei2),p.dateAchat,p.fournisseur,p.prixAchat||0,p.prixPrevu||0,p.prixReel||'',coutDe(p)-(p.prixAchat||0),coutDe(p),p.statut,jours(p),isB(p)?(p.qte||0):1])});
    dl('zafnatech-produits-'+today()+'.csv','text/csv;charset=utf-8',csv(rows));msg('Fichier des produits créé.')}
   catch(e){msg('Export impossible.',1)}
  };
@@ -423,10 +423,10 @@ function backupInit(){
   E('b-ok').onclick=async function(){try{await restaurer(d);msg('Données restaurées : '+d.produits.length+' produit(s), '+d.ventes.length+' vente(s).')}catch(e){msg('Restauration impossible. Vos données actuelles n’ont pas été modifiées.',1)}};
  };
 }
-function isB(p){return p.type==='bsn'||p.type==='div'}
+function isB(p){return ['bsn','div','csf','csb'].indexOf(p.type)>-1}
 function nb(p){return isB(p)?(p.qte||0):1}
 function coutV(v,p){return v.qte?v.cout:(p?coutDe(p):v.cout)}
-var TYPES=[['tel','Téléphones'],['pc','Ordinateurs'],['enc','Enceintes Bluetooth'],['chg','Chargeurs PC'],['con','Consoles de jeux'],['bsn','Boissons'],['ovb','Overboards'],['div','Divers']];
+var TYPES=[['tel','Téléphones'],['pc','Ordinateurs'],['enc','Enceintes Bluetooth'],['chg','Chargeurs PC'],['con','Consoles de jeux'],['bsn','Boissons'],['ovb','Overboards'],['div','Divers'],['csf','Casques filaires'],['csb','Casques sans fil']];
 function tNom(t){for(var i=0;i<TYPES.length;i++)if(TYPES[i][0]===t)return TYPES[i][1];return'Autres'}
 function tile(l,v,w){return'<div class="tile'+(w?' w2':'')+'"><span>'+l+'</span><b>'+v+'</b></div>'}
 function bmsg(t,er){var m=E('b-msg');if(m){m.textContent=t;m.className='sub'+(er?' err':'')}}
