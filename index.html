@@ -403,6 +403,7 @@ function backupInit(){
  E('b-pw').onclick=function(){var u=auth.currentUser;auth.sendPasswordResetEmail(u.email).then(function(){bmsg('E-mail envoyé à '+u.email+'. Ouvrez-le pour choisir un nouveau mot de passe.')},function(){bmsg('Envoi impossible. Vérifiez la connexion.',1)})};
  empInit();
  infoInit();
+ sigInit();
  if(!E('b-save'))return;
  function msg(t,er){var m=E('b-msg');m.textContent=t;m.className='sub'+(er?' err':'')}
  E('b-save').onclick=async function(){
@@ -541,7 +542,7 @@ function backupUI(){
  var d=store.get('zt_bk'),u=auth&&auth.currentUser;
  var h='<div class="card"><h2>Mon compte</h2><p>Connecté : <b>'+esc(u?u.email:'')+'</b><br>Rôle : <b>'+(isAdmin()?'Propriétaire':'Vendeur')+'</b></p></div><button class="btn" id="b-pw">🔑 Changer mon mot de passe (par e-mail)</button><button class="btn" id="b-out">Se déconnecter</button>';
  if(!isAdmin())return h+'<div class="sub" id="b-msg"></div>';
- return h+empUI()+infoUI()+'<div class="card"><h2>Sauvegarde et transfert</h2><p>Dernière sauvegarde : <b>'+(d?dfr(d):'jamais')+'</b>. Le fichier contient tous vos produits, photos et ventes, mais pas le PIN. Il n’est pas chiffré : gardez-le en lieu sûr. Les données sont dans le cloud : pour changer de téléphone, connectez-vous simplement avec le même e-mail. La sauvegarde reste utile en cas d’erreur.</p></div><button class="btn" id="b-save">💾 Créer une sauvegarde complète</button><button class="btn" id="b-rest">📥 Restaurer une sauvegarde</button><input type="file" id="b-file" accept=".json,application/json" hidden><button class="btn" id="b-csvp">📄 Exporter les produits (Excel/CSV)</button><button class="btn" id="b-csvv">📄 Exporter les ventes (Excel/CSV)</button><div class="sub" id="b-msg"></div>';
+ return h+empUI()+sigUI()+infoUI()+'<div class="card"><h2>Sauvegarde et transfert</h2><p>Dernière sauvegarde : <b>'+(d?dfr(d):'jamais')+'</b>. Le fichier contient tous vos produits, photos et ventes, mais pas le PIN. Il n’est pas chiffré : gardez-le en lieu sûr. Les données sont dans le cloud : pour changer de téléphone, connectez-vous simplement avec le même e-mail. La sauvegarde reste utile en cas d’erreur.</p></div><button class="btn" id="b-save">💾 Créer une sauvegarde complète</button><button class="btn" id="b-rest">📥 Restaurer une sauvegarde</button><input type="file" id="b-file" accept=".json,application/json" hidden><button class="btn" id="b-csvp">📄 Exporter les produits (Excel/CSV)</button><button class="btn" id="b-csvv">📄 Exporter les ventes (Excel/CSV)</button><div class="sub" id="b-msg"></div>';
 }
 var HW=[278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584,761,556,500,222,556,333,1000,556,556,333,1000,667,333,1000,500,611,500,500,222,222,333,333,350,556,1000,333,1000,500,333,944,500,500,667,278,333,556,556,556,556,260,556,333,737,370,556,584,333,737,333,400,584,333,333,333,556,537,278,333,333,365,556,834,834,834,611,667,667,667,667,667,667,1000,722,667,667,667,667,278,278,278,278,722,722,778,778,778,778,778,584,778,722,722,722,722,667,667,611,556,556,556,556,556,556,889,500,556,556,556,556,278,278,278,278,556,556,556,556,556,556,556,584,611,556,556,556,556,500,556,500],HB=[278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584,761,556,500,278,556,500,1000,556,556,333,1000,667,333,1000,500,611,500,500,278,278,500,500,350,556,1000,333,1000,556,333,944,500,500,667,278,333,556,556,556,556,280,556,333,737,370,556,584,333,737,333,400,584,333,333,333,611,556,278,333,333,365,556,834,834,834,611,722,722,722,722,722,722,1000,722,667,667,667,667,278,278,278,278,722,722,778,778,778,778,778,584,778,722,722,722,722,667,667,611,556,556,556,556,556,556,889,556,556,556,556,556,278,278,278,278,611,611,611,611,611,611,611,584,611,611,611,611,611,556,611,556];
 function enc(s){var o='',c;s=String(s==null?'':s);for(var i=0;i<s.length;i++){c=s.charCodeAt(i);if(c===0x2019)c=0x92;else if(c===0x2018)c=0x91;else if(c===0x201C)c=0x93;else if(c===0x201D)c=0x94;else if(c===0x2013)c=0x96;else if(c===0x2014)c=0x97;else if(c===0x2026)c=0x85;else if(c===0x202F||c===0xA0||c===0x2212)c=c===0x2212?45:32;else if(c>255)c=63;o+=String.fromCharCode(c)}return o}
@@ -650,26 +651,33 @@ function pdfFacture(d){
  y+=8;
  if(d.conditions){wrapTxt(d.conditions,cw,8.5,false).slice(0,4).forEach(function(t){text(mL,y,t,8.5,false,GR);y+=11.5})}
  // signatures
- var sy=Math.max(y+30,640);
- text(mL,sy,'Le Client',10,true,INK);line(mL,sy+46,mL+170,sy+46,0.6);
+ var sy=Math.max(y+30,640),sig=null;
+ strk('#8a97a6');
+ text(mL,sy,'Le Client',10,true,INK);line(mL,sy+70,mL+170,sy+70,0.6);
  text(mL+cw,sy,'Le Responsable',10,true,INK,'r');
  if(S.responsable)text(mL+cw,sy+14,S.responsable,9.5,false,GR,'r');
- line(mL+cw-170,sy+46,mL+cw,sy+46,0.6);
+ line(mL+cw-170,sy+70,mL+cw,sy+70,0.6);
+ if(d.sig&&d.sig.data&&d.sig.w>0){
+  var sc=Math.min(170/d.sig.w,46/d.sig.h);
+  sig={w:d.sig.w*sc,h:d.sig.h*sc,bin:atob(d.sig.data.split(',')[1])};
+  ops.push('q '+sig.w.toFixed(2)+' 0 0 '+sig.h.toFixed(2)+' '+(mL+cw-sig.w).toFixed(2)+' '+(H-(sy+68)).toFixed(2)+' cm /Im1 Do Q');
+ }
  // pied
  fill(AMB);rect(0,H-44,W,3,'f');
  text(W/2,H-24,d.merci||'Merci de votre confiance !',9.5,false,GR,'c');
  var content=ops.join('\n'),objs=[];
  objs[1]='<< /Type /Catalog /Pages 2 0 R >>';
  objs[2]='<< /Type /Pages /Kids [3 0 R] /Count 1 >>';
- objs[3]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+W+' '+H+'] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>';
+ objs[3]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+W+' '+H+'] /Resources << /Font << /F1 5 0 R /F2 6 0 R >>'+(sig?' /XObject << /Im1 7 0 R >>':'')+' >> /Contents 4 0 R >>';
+ if(sig)objs[7]='<< /Type /XObject /Subtype /Image /Width '+d.sig.w+' /Height '+d.sig.h+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+sig.bin.length+' >>\nstream\n'+sig.bin+'\nendstream';
  objs[4]='<< /Length '+content.length+' >>\nstream\n'+content+'\nendstream';
  objs[5]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
  objs[6]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
- var out='%PDF-1.4\n',off=[],i;
- for(i=1;i<=6;i++){off[i]=out.length;out+=i+' 0 obj\n'+objs[i]+'\nendobj\n'}
- var xr=out.length;out+='xref\n0 7\n0000000000 65535 f \n';
- for(i=1;i<=6;i++)out+=('0000000000'+off[i]).slice(-10)+' 00000 n \n';
- out+='trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n'+xr+'\n%%EOF';
+ var N=sig?7:6,out='%PDF-1.4\n',off=[],i;
+ for(i=1;i<=N;i++){off[i]=out.length;out+=i+' 0 obj\n'+objs[i]+'\nendobj\n'}
+ var xr=out.length;out+='xref\n0 '+(N+1)+'\n0000000000 65535 f \n';
+ for(i=1;i<=N;i++)out+=('0000000000'+off[i]).slice(-10)+' 00000 n \n';
+ out+='trailer\n<< /Size '+(N+1)+' /Root 1 0 R >>\nstartxref\n'+xr+'\n%%EOF';
  var u=new Uint8Array(out.length);for(i=0;i<out.length;i++)u[i]=out.charCodeAt(i)&255;
  return new Blob([u],{type:'application/pdf'});
 }
@@ -689,7 +697,7 @@ async function numeroFacture(v){
  return v.facture;
 }
 function capit(s){return s.charAt(0).toUpperCase()+s.slice(1)}
-function dataFacture(v,p,set,no,gar,rem){
+function dataFacture(v,p,set,no,gar,rem,withSig){
  var det=[];
  if(p){
   if(p.caract)det.push(p.caract);
@@ -701,7 +709,7 @@ function dataFacture(v,p,set,no,gar,rem){
  if(gar)det.push('Garantie : '+gar);
  if(rem)det.push(rem);
  var q=v.qte||1;
- return{shop:set,no:no,date:dfr(v.date),client:v.client,contact:v.contact,designation:v.nom,details:det,qte:q,pu:Math.round(v.prix/q),total:v.prix,paiements:v.paiements.map(function(x){return{date:dfr(x.date),mode:x.mode,montant:x.montant}}),reste:v.prix-paye(v),lettres:capit(enLettres(v.prix)),conditions:set.conditions,merci:set.merci};
+ return{shop:set,no:no,date:dfr(v.date),client:v.client,contact:v.contact,designation:v.nom,details:det,qte:q,pu:Math.round(v.prix/q),total:v.prix,paiements:v.paiements.map(function(x){return{date:dfr(x.date),mode:x.mode,montant:x.montant}}),reste:v.prix-paye(v),lettres:capit(enLettres(v.prix)),conditions:set.conditions,merci:set.merci,sig:(withSig&&set.signature)?{data:set.signature,w:set.sigW,h:set.sigH}:null};
 }
 function saveBlob(b,nom){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nom;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},4000)}
 function waLink(contact,t){var n=(contact||'').replace(/\D/g,'');if(n.indexOf('00')===0)n=n.slice(2);else if(n.length===8)n='228'+n;return'https://wa.me/'+n+'?text='+encodeURIComponent(t)}
@@ -718,9 +726,9 @@ async function factureEcran(v,p){
  var reste=v.prix-paye(v);
  r.innerHTML='<h2 class="ft">Facture n° '+esc(no)+'</h2><div class="card"><p><b>'+esc(v.nom)+(v.qte?' × '+v.qte:'')+'</b></p><p>Client : '+esc(v.client||'Client de passage')+(v.contact?', '+esc(v.contact):'')+'</p><p>Total : <b>'+fcfa(v.prix)+'</b>'+(reste>0?'<br>Reste à payer : <b>'+fcfa(reste)+'</b>':'')+'</p></div>'+
   '<label class="f">Garantie<input class="in" id="g-gar" value="'+esc(v.garantie!=null?v.garantie:set.garantie)+'" placeholder="ex. 1 mois (laisser vide si aucune)"></label>'+
-  '<label class="f">Remarque (facultatif, ex. chargeur inclus)<input class="in" id="g-rem" value="'+esc(v.remarque||'')+'"></label>'+
+  '<label class="f">Remarque (facultatif, ex. chargeur inclus)<input class="in" id="g-rem" value="'+esc(v.remarque||'')+'"></label>'+(set.signature&&(isAdmin()||set.sigVendeurs)?'<label class="f" style="font-weight:400"><input type="checkbox" id="g-sig" checked> Ajouter la signature du responsable sur la facture</label>':'')+
   '<button class="btn pri" id="g-send">📄 Créer la facture et l’envoyer (WhatsApp)</button><button class="btn" id="g-dl">Télécharger le PDF</button><button class="btn" id="g-back">Retour aux ventes</button>';
- function fabr(){v.garantie=E('g-gar').value.trim();v.remarque=E('g-rem').value.trim();put(v,'ventes').catch(function(){});return pdfFacture(dataFacture(v,p,set,no,v.garantie,v.remarque))}
+ function fabr(){v.garantie=E('g-gar').value.trim();v.remarque=E('g-rem').value.trim();put(v,'ventes').catch(function(){});return pdfFacture(dataFacture(v,p,set,no,v.garantie,v.remarque,!!(E('g-sig')&&E('g-sig').checked)))}
  function msg(){return'Bonjour'+(v.client?' '+v.client:'')+', voici votre facture n° '+no+' de '+set.nom+' : '+v.nom+(v.qte?' × '+v.qte:'')+', total '+fcfa(v.prix)+(reste>0?', reste à payer '+fcfa(reste):'')+'. '+(set.merci||'Merci de votre confiance !')}
  E('g-send').onclick=function(){envoyerPdf(fabr(),'Facture-'+no+'.pdf',msg(),v.contact)};
  E('g-dl').onclick=function(){saveBlob(fabr(),'Facture-'+no+'.pdf')};
@@ -730,19 +738,78 @@ async function factureEcran(v,p){
 var INFO={'i-nom':'nom','i-slogan':'slogan','i-tel':'tel','i-adr':'adresse','i-resp':'responsable','i-gar':'garantie','i-cond':'conditions','i-merci':'merci'};
 function infoUI(){
  var L={'i-nom':'Nom de la boutique','i-slogan':'Activités (sous le nom)','i-tel':'Téléphone','i-adr':'Adresse','i-resp':'Nom du responsable (signature)','i-gar':'Garantie par défaut (ex. 1 mois)','i-cond':'Conditions (facultatif)','i-merci':'Message de remerciement'};
- return'<div class="card"><h2>Informations de la boutique (factures)</h2><p>Ces informations apparaissent sur chaque facture PDF envoyée aux clients.</p></div>'+Object.keys(INFO).map(function(k){return'<label class="f">'+L[k]+'<input class="in" id="'+k+'"></label>'}).join('')+'<button class="btn pri" id="i-save">Enregistrer les informations</button><div class="sub" id="i-msg"></div>';
+ return'<div class="card"><h2>Informations de la boutique (factures)</h2><p>Ces informations apparaissent sur chaque facture PDF envoyée aux clients.</p></div>'+Object.keys(INFO).map(function(k){return'<label class="f">'+L[k]+'<input class="in" id="'+k+'"></label>'}).join('')+'<label class="f" style="font-weight:400"><input type="checkbox" id="i-sigv"> Autoriser les vendeurs à ajouter la signature sur leurs factures</label><button class="btn pri" id="i-save">Enregistrer les informations</button><div class="sub" id="i-msg"></div>';
 }
 async function infoInit(){
  if(!E('i-save'))return;
  var set=await getSet();
  if(!E('i-save'))return;
- Object.keys(INFO).forEach(function(k){E(k).value=set[INFO[k]]||''});
+ Object.keys(INFO).forEach(function(k){E(k).value=set[INFO[k]]||''});E('i-sigv').checked=!!set.sigVendeurs;
  E('i-save').onclick=async function(){
   var o={},m=E('i-msg');
-  Object.keys(INFO).forEach(function(k){o[INFO[k]]=E(k).value.trim()});
+  Object.keys(INFO).forEach(function(k){o[INFO[k]]=E(k).value.trim()});o.sigVendeurs=E('i-sigv').checked;
   if(!o.nom){m.textContent='Indiquez le nom de la boutique.';m.className='sub err';return}
   try{await col('parametres').doc('boutique').set(o,{merge:true});bSet=Object.assign({},bSet,o);m.textContent='Informations enregistrées.';m.className='sub'}
   catch(e){m.textContent='Enregistrement impossible. Vérifiez la connexion.';m.className='sub err'}
+ };
+}
+function sigUI(){
+ return'<div class="card"><h2>Signature du responsable</h2><p>Dessinez votre signature au doigt dans le cadre, ou importez la photo d’une signature faite sur papier blanc. Elle pourra être ajoutée sur chaque facture PDF.</p><p id="s-cur" class="m"></p></div><canvas id="s-cv" width="720" height="260" style="width:100%;max-width:360px;height:130px;border:1px dashed var(--bd);border-radius:10px;background:#fff;touch-action:none;display:block;margin:0 0 10px"></canvas><button class="btn" id="s-clr">Effacer le dessin</button><button class="btn pri" id="s-save">Enregistrer ma signature</button><button class="btn" id="s-photo">📷 Importer une photo de ma signature</button><input type="file" id="s-file" accept="image/*" hidden><button class="btn dng" id="s-del2">Supprimer la signature enregistrée</button><div class="sub" id="s-msg"></div>';
+}
+async function sigInit(){
+ var cv=E('s-cv');if(!cv)return;
+ var ctx=cv.getContext('2d'),dr=false;
+ function blank(){ctx.fillStyle='#fff';ctx.fillRect(0,0,cv.width,cv.height);ctx.strokeStyle='#000';ctx.lineWidth=5;ctx.lineCap='round';ctx.lineJoin='round'}
+ blank();
+ function pos(e){var r=cv.getBoundingClientRect();return[(e.clientX-r.left)*cv.width/r.width,(e.clientY-r.top)*cv.height/r.height]}
+ cv.onpointerdown=function(e){e.preventDefault();try{cv.setPointerCapture(e.pointerId)}catch(x){}dr=true;var q=pos(e);ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(q[0]+0.1,q[1]+0.1);ctx.stroke()};
+ cv.onpointermove=function(e){if(!dr)return;e.preventDefault();var q=pos(e);ctx.lineTo(q[0],q[1]);ctx.stroke()};
+ cv.onpointerup=cv.onpointercancel=function(){dr=false};
+ function msg(t,er){var m=E('s-msg');if(m){m.textContent=t;m.className='sub'+(er?' err':'')}}
+ function rogner(c){
+  var x=c.getContext('2d'),w=c.width,h=c.height,d=x.getImageData(0,0,w,h).data,x0=w,y0=h,x1=-1,y1=-1,i,j,k;
+  for(j=0;j<h;j++)for(i=0;i<w;i++){k=(j*w+i)*4;if(d[k]<150){if(i<x0)x0=i;if(i>x1)x1=i;if(j<y0)y0=j;if(j>y1)y1=j}}
+  if(x1<0)return null;
+  var m=8;x0=Math.max(0,x0-m);y0=Math.max(0,y0-m);x1=Math.min(w-1,x1+m);y1=Math.min(h-1,y1+m);
+  var o=document.createElement('canvas');o.width=x1-x0+1;o.height=y1-y0+1;
+  var ox=o.getContext('2d');ox.fillStyle='#fff';ox.fillRect(0,0,o.width,o.height);ox.drawImage(c,x0,y0,o.width,o.height,0,0,o.width,o.height);
+  return{data:o.toDataURL('image/jpeg',0.85),w:o.width,h:o.height};
+ }
+ var set=await getSet();
+ function montre(){var s=bSet||set,m=E('s-cur');if(!m)return;m.innerHTML=s.signature?'Signature enregistrée :<br><img src="'+s.signature+'" alt="Signature" style="max-width:220px;max-height:80px;background:#fff;border:1px solid var(--bd);border-radius:6px;margin-top:6px">':'Aucune signature enregistrée.'}
+ montre();
+ async function enreg(r){
+  if(!r)return msg('Aucune signature détectée. Dessinez d’abord dans le cadre.',1);
+  try{await col('parametres').doc('boutique').set({signature:r.data,sigW:r.w,sigH:r.h},{merge:true});bSet=Object.assign({},bSet||set,{signature:r.data,sigW:r.w,sigH:r.h});montre();msg('Signature enregistrée.')}
+  catch(e){msg('Enregistrement impossible. Vérifiez la connexion.',1)}
+ }
+ E('s-clr').onclick=function(){blank()};
+ E('s-save').onclick=function(){enreg(rogner(cv))};
+ E('s-photo').onclick=function(){E('s-file').click()};
+ E('s-file').onchange=function(){
+  var f=this.files[0];this.value='';if(!f)return;
+  var fr=new FileReader();
+  fr.onload=function(){
+   var im=new Image();
+   im.onload=function(){
+    var k=Math.min(1,900/Math.max(im.width,im.height)),c=document.createElement('canvas');
+    c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
+    var x=c.getContext('2d');x.drawImage(im,0,0,c.width,c.height);
+    var id=x.getImageData(0,0,c.width,c.height),d=id.data,hist=new Array(256).fill(0),n=c.width*c.height,i,g,t,v,acc=0,bg=255;
+    for(i=0;i<n;i++){g=Math.round(0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2]);d[i*4]=g;hist[g]++}
+    for(i=0;i<256;i++){acc+=hist[i];if(acc>=n*0.9){bg=Math.max(i,60);break}}
+    for(i=0;i<n;i++){t=d[i*4]/bg;v=t>=0.75?255:Math.round(Math.pow(t/0.75,2)*255);d[i*4]=d[i*4+1]=d[i*4+2]=v;d[i*4+3]=255}
+    x.putImageData(id,0,0);
+    enreg(rogner(c));
+   };
+   im.onerror=function(){msg('Photo illisible.',1)};
+   im.src=fr.result;
+  };
+  fr.readAsDataURL(f);
+ };
+ E('s-del2').onclick=async function(){
+  try{await col('parametres').doc('boutique').set({signature:'',sigW:0,sigH:0},{merge:true});bSet=Object.assign({},bSet||set,{signature:'',sigW:0,sigH:0});montre();msg('Signature supprimée.')}
+  catch(e){msg('Suppression impossible.',1)}
  };
 }
 var tabs=[["bord","📊","Accueil"],["prod","📦","Produits"],["vent","🧾","Ventes"],["reg","⚙️","Réglages"]];
