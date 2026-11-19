@@ -148,7 +148,7 @@ function change3(first){
 /* ===== Étape 2 : produits ===== */
 var SEUIL=30,STATUTS=["En stock","Réservé","Vendu","Retourné","En réparation"],ETATS=["Neuf","Occasion – très bon état","Occasion – bon état","Pour pièces / à réparer"];
 var _db,filtre={q:"",s:""};
-var cfg=window.FIREBASE_CONFIG,fbOK=false,fdb=null,auth=null,uid=null,dataUid=null,role='admin';
+var cfg=window.FIREBASE_CONFIG,fbOK=false,fdb=null,auth=null,uid=null,dataUid=null,role='admin',monNom='Propriétaire';
 function isAdmin(){return role==='admin'}
 try{if(cfg&&cfg.apiKey){firebase.initializeApp(cfg);auth=firebase.auth();fdb=firebase.firestore();fdb.enablePersistence({synchronizeTabs:true}).catch(function(){});fbOK=true}}catch(e){fbOK=false}
 function col(st){return fdb.collection("comptes").doc(dataUid).collection(st||"produits")}
@@ -182,7 +182,7 @@ async function prodList(){
   var h=rows.length?"":card(list.length?"Aucun résultat":"Aucun produit","Appuyez sur « Ajouter un produit » pour enregistrer votre premier article.");
   rows.forEach(function(p){
    var old=jours(p)>SEUIL&&(p.statut==="En stock"||p.statut==="Réservé");
-   h+='<div class="item" data-id="'+p.id+'">'+(p.photos&&p.photos[0]?'<img src="'+p.photos[0]+'" alt="">':'<div class="ph">'+(p.type==="tel"?"📱":p.type==="enc"?"🔊":p.type==="chg"?"🔌":p.type==="con"?"🎮":p.type==="bsn"?"🥤":p.type==="ovb"?"🛴":p.type==="div"?"📦":(p.type==="csf"||p.type==="csb")?"🎧":"💻")+'</div>')+'<div><b>'+esc(p.marque)+' '+esc(p.modele)+'</b><p class="m">'+(isAdmin()?'Achat : '+fcfa(p.prixAchat):'Prix : '+fcfa(p.prixPrevu))+(isB(p)?' par unité, stock : '+(p.qte||0):"")+'</p><span class="tag">'+p.statut+'</span> '+(old?'<span class="tag warn">⚠ '+jours(p)+' jours en stock</span>':"")+'</div></div>';
+   h+='<div class="item" data-id="'+p.id+'">'+(p.photos&&p.photos[0]?'<img src="'+p.photos[0]+'" alt="">':'<div class="ph">'+(p.type==="tel"?"📱":p.type==="enc"?"🔊":p.type==="chg"?"🔌":p.type==="con"?"🎮":p.type==="bsn"?"🥤":p.type==="ovb"?"🛴":p.type==="div"?"📦":(p.type==="csf"||p.type==="csb")?"🎧":p.type==="app"?"📷":p.type==="mon"?"⌚":"💻")+'</div>')+'<div><b>'+esc(p.marque)+' '+esc(p.modele)+'</b><p class="m">'+(isAdmin()?'Achat : '+fcfa(p.prixAchat):'Prix : '+fcfa(p.prixPrevu))+(isB(p)?' par unité, stock : '+(p.qte||0):"")+'</p><span class="tag">'+p.statut+'</span> '+(old?'<span class="tag warn">⚠ '+jours(p)+' jours en stock</span>':"")+'</div></div>';
   });
   E("p-list").innerHTML=h;
   E("p-list").onclick=function(e){var it=e.target.closest(".item");if(it&&isAdmin()){var id=Number(it.getAttribute("data-id"));prodForm(list.filter(function(p){return p.id===id})[0])}};
@@ -201,7 +201,7 @@ function prodForm(p){
  function inp(l,id,v,t,x){return'<label class="f">'+l+'<input class="in" id="'+id+'" type="'+(t||"text")+'" value="'+esc(v)+'" '+(x||"")+'></label>'}
  var im='inputmode="numeric" maxlength="15"',nu='inputmode="numeric" min="0"';
  E("prod-root").innerHTML='<h2 class="ft">'+(nw?"Nouveau produit":"Modifier le produit")+'</h2>'+
-  sel("Type","f-type",[["tel","Téléphone"],["pc","Ordinateur portable"],["enc","Enceinte Bluetooth"],["chg","Chargeur PC"],["con","Console de jeux"],["bsn","Boisson"],["ovb","Overboard"],["div","Divers"],["csf","Casque filaire"],["csb","Casque sans fil"]],p.type)+(nw?'':'<p class="m" style="margin:-6px 0 14px">Produit classé par erreur ? Changez le type ci-dessus puis enregistrez. L’historique des ventes suit le produit. Les champs propres à l’ancienne catégorie (IMEI, numéro de série, quantité) sont effacés si la nouvelle catégorie ne les utilise pas.</p>')+
+  sel("Type","f-type",[["tel","Téléphone"],["pc","Ordinateur portable"],["enc","Enceinte Bluetooth"],["chg","Chargeur PC"],["con","Console de jeux"],["bsn","Boisson"],["ovb","Overboard"],["div","Divers"],["csf","Casque filaire"],["csb","Casque sans fil"],["app","Appareil photo numérique"],["mon","Montre connectée"]],p.type)+(nw?'':'<p class="m" style="margin:-6px 0 14px">Produit classé par erreur ? Changez le type ci-dessus puis enregistrez. L’historique des ventes suit le produit. Les champs propres à l’ancienne catégorie (IMEI, numéro de série, quantité) sont effacés si la nouvelle catégorie ne les utilise pas.</p>')+
   inp("Marque","f-marque",p.marque)+inp("Modèle","f-modele",p.modele)+
   '<label class="f">Caractéristiques (RAM, stockage, puissance, volume, autonomie…)<textarea class="in" id="f-caract" rows="3">'+esc(p.caract)+'</textarea></label>'+
   sel("État","f-etat",ETATS,p.etat)+
@@ -268,23 +268,51 @@ function paye(v){return v.paiements.reduce(function(a,x){return a+x.montant},0)}
 function dfr(d){return d?new Date(d).toLocaleDateString('fr-FR'):''}
 function modeOpts(){return MODES.map(function(m){return'<option>'+m+'</option>'}).join('')}
 function ventErr(m){var e=E('f-err');if(e){e.textContent=m;e.scrollIntoView({block:'center'})}}
+var vf={p:'tout',t:'',o:'recent'};
 async function ventList(){
  var r=E('vent-root');if(!r)return;
  var vs,ps;
  try{vs=await all('ventes');ps=await all()}catch(e){r.innerHTML=card('Stockage indisponible','Impossible d’ouvrir la base de données.');return}
  var map={};ps.forEach(function(p){map[p.id]=p});
- var dispo=ps.filter(function(p){return p.statut==='En stock'||p.statut==='Réservé'});
- vs.sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:b.id-a.id});
+ var dispo=ps.filter(function(p){return p.statut==='En stock'||p.statut==='Réservé'}),adm=isAdmin();
+ function info(v){var p=map[v.produitId],m=v.prix-coutV(v,p);return{m:m,pc:v.prix>0?Math.round(m*100/v.prix):0,t:v.type||(p&&p.type)||'autre'}}
  var h='<button class="btn pri" id="v-add">+ Enregistrer une vente</button>';
- if(!vs.length)h+=card('Aucune vente','Choisissez un article en stock pour enregistrer votre première vente.');
- vs.forEach(function(v){
-  var p=map[v.produitId],m=v.prix-coutV(v,p),reste=v.prix-paye(v);
-  h+='<div class="item" data-id="'+v.id+'"><div><b>'+esc(v.nom)+(v.qte?' × '+v.qte:'')+'</b><p class="m">'+dfr(v.date)+(v.client?', '+esc(v.client):'')+'</p><p class="m">Vendu '+fcfa(v.prix)+(isAdmin()?', marge '+fcfa(m):'')+'</p>'+(reste>0?'<span class="tag warn">Reste à payer : '+fcfa(reste)+'</span>':'<span class="tag">Soldé</span>')+'</div></div>';
- });
- r.innerHTML=h;
+ if(adm){
+  h+='<select class="in" id="vf-p"><option value="tout"'+(vf.p==='tout'?' selected':'')+'>Toutes les ventes</option><option value="mois"'+(vf.p==='mois'?' selected':'')+'>Ce mois-ci</option></select>'+
+   '<select class="in" id="vf-t"><option value="">Toutes les catégories</option>'+TYPES.map(function(t){return'<option value="'+t[0]+'"'+(vf.t===t[0]?' selected':'')+'>'+t[1]+'</option>'}).join('')+'</select>'+
+   '<select class="in" id="vf-o"><option value="recent"'+(vf.o==='recent'?' selected':'')+'>Plus récentes d’abord</option><option value="max"'+(vf.o==='max'?' selected':'')+'>Plus grosse marge d’abord</option><option value="min"'+(vf.o==='min'?' selected':'')+'>Plus petite marge d’abord</option></select>';
+ }
+ r.innerHTML=h+'<div id="v-sum"></div><div id="v-list"></div>';
+ function fill(){
+  var mois=today().slice(0,7);
+  var rows=vs.filter(function(v){return(!adm||vf.p==='tout'||(v.date||'').slice(0,7)===mois)&&(!adm||!vf.t||info(v).t===vf.t)});
+  rows.sort(function(a,b){
+   if(adm&&vf.o==='max')return info(b).m-info(a).m;
+   if(adm&&vf.o==='min')return info(a).m-info(b).m;
+   return a.date<b.date?1:a.date>b.date?-1:b.id-a.id;
+  });
+  var sum='';
+  if(adm&&rows.length){var ca=0,mg=0;rows.forEach(function(v){ca+=v.prix;mg+=info(v).m});sum='<div class="grid">'+tile('Ventes',rows.length)+tile('Chiffre d’affaires',fcfa(ca))+tile('Marge totale',fcfa(mg))+tile('Marge moyenne',(ca>0?Math.round(mg*100/ca):0)+' %')+'</div>'}
+  E('v-sum').innerHTML=sum;
+  var l=rows.length?'':card(vs.length?'Aucun résultat':'Aucune vente',vs.length?'Aucune vente ne correspond à ces filtres.':'Choisissez un article en stock pour enregistrer votre première vente.');
+  rows.forEach(function(v){
+   var i=info(v),reste=v.prix-paye(v);
+   l+='<div class="item" data-id="'+v.id+'"><div><b>'+esc(v.nom)+(v.qte?' × '+v.qte:'')+'</b><p class="m">'+dfr(v.date)+(v.client?', '+esc(v.client):'')+'</p><p class="m">Vendu '+fcfa(v.prix)+'</p>'+
+    (adm?'<p class="m" style="color:'+(i.m<0?'var(--err)':'#2e9d4f')+'"><b>Marge : '+fcfa(i.m)+' ('+i.pc+' %)</b></p>'+(v.par?'<p class="m">Vendeur : '+esc(v.par)+'</p>':''):'')+
+    (reste>0?'<span class="tag warn">Reste à payer : '+fcfa(reste)+'</span>':'<span class="tag">Soldé</span>')+'</div></div>';
+  });
+  E('v-list').innerHTML=l;
+ }
+ fill();
+ if(adm){
+  E('vf-p').onchange=function(){vf.p=this.value;fill()};
+  E('vf-t').onchange=function(){vf.t=this.value;fill()};
+  E('vf-o').onchange=function(){vf.o=this.value;fill()};
+ }
  E('v-add').onclick=function(){ventForm(dispo)};
- r.onclick=function(e){var it=e.target.closest('.item');if(it){var id=Number(it.getAttribute('data-id'));var v=vs.filter(function(x){return x.id===id})[0];ventDetail(v,map[v.produitId])}};
+ E('v-list').onclick=function(e){var it=e.target.closest('.item');if(it){var id=Number(it.getAttribute('data-id'));var v=vs.filter(function(x){return x.id===id})[0];ventDetail(v,map[v.produitId])}};
 }
+
 function ventForm(dispo){
  var r=E('vent-root'),enc=false;
  if(!dispo.length){r.innerHTML=card('Aucun article disponible','Ajoutez d’abord un produit « En stock » ou « Réservé » dans l’onglet Produits.')+'<button class="btn" id="f-cx">Retour</button>';E('f-cx').onclick=ventList;return}
@@ -311,7 +339,7 @@ function ventForm(dispo){
   if(!(px>0))return ventErr('Indiquez le prix de vente réel.');
   if(en<0||en>px)return ventErr('Le montant encaissé doit être compris entre 0 et le prix de vente.');
   try{
-   var rec={produitId:p.id,type:p.type,nom:p.marque+' '+p.modele,date:d,prix:px,cout:b?n*(p.prixAchat||0):coutDe(p),qte:b?n:0,client:E('v-c').value.trim(),contact:E('v-t').value.trim(),paiements:en>0?[{date:d,montant:en,mode:E('v-mode').value}]:[],creeLe:Date.now()};await put(rec,'ventes');
+   var rec={produitId:p.id,type:p.type,nom:p.marque+' '+p.modele,date:d,prix:px,cout:b?n*(p.prixAchat||0):coutDe(p),qte:b?n:0,par:monNom,client:E('v-c').value.trim(),contact:E('v-t').value.trim(),paiements:en>0?[{date:d,montant:en,mode:E('v-mode').value}]:[],creeLe:Date.now()};await put(rec,'ventes');
    if(b){p.qte=(p.qte||0)-n;if(p.qte<=0)p.statut='Vendu'}else{p.statut='Vendu'}p.prixReel=b?Number(E('v-prix').value):px;p.dateVente=d;await put(p);
    factureEcran(rec,p);
   }catch(e){ventErr('Enregistrement impossible. Vérifiez l’espace de stockage du téléphone.')}
@@ -322,7 +350,7 @@ function ventDetail(v,p){
  var sure=false;
  function draw(){
   var cout=coutV(v,p),reste=v.prix-paye(v);
-  E('vent-root').innerHTML='<h2 class="ft">'+esc(v.nom)+(v.qte?' × '+v.qte:'')+'</h2><div class="card"><p>Vente du '+dfr(v.date)+'</p>'+(v.client?'<p>Client : <b>'+esc(v.client)+'</b>'+(v.contact?', '+esc(v.contact):'')+'</p>':'')+'<p>Prix de vente : <b>'+fcfa(v.prix)+'</b></p>'+(isAdmin()?'<p>Coût de revient : <b>'+fcfa(cout)+'</b></p><p>Marge réelle : <b>'+fcfa(v.prix-cout)+'</b></p>':'')+'</div>'+
+  E('vent-root').innerHTML='<h2 class="ft">'+esc(v.nom)+(v.qte?' × '+v.qte:'')+'</h2><div class="card"><p>Vente du '+dfr(v.date)+'</p>'+(v.client?'<p>Client : <b>'+esc(v.client)+'</b>'+(v.contact?', '+esc(v.contact):'')+'</p>':'')+'<p>Prix de vente : <b>'+fcfa(v.prix)+'</b></p>'+(isAdmin()?'<p>Coût de revient : <b>'+fcfa(cout)+'</b></p><p>Marge réelle : <b>'+fcfa(v.prix-cout)+'</b> ('+(v.prix>0?Math.round((v.prix-cout)*100/v.prix):0)+' %)</p>'+(v.par?'<p>Vendeur : <b>'+esc(v.par)+'</b></p>':''):'')+'</div>'+
    '<div class="card"><h2>Paiements</h2>'+(v.paiements.length?v.paiements.map(function(x){return'<div class="dl"><span>'+dfr(x.date)+', '+esc(x.mode)+'</span><b>'+fcfa(x.montant)+'</b></div>'}).join(''):'<p>Aucun paiement reçu.</p>')+'<p class="m">'+(reste>0?'Reste à payer : <b>'+fcfa(reste)+'</b>':'Vente soldée')+'</p></div>'+
    (reste>0?'<div class="card"><h2>Ajouter un paiement</h2><label class="f">Montant (FCFA)<input class="in" id="a-m" type="number" inputmode="numeric" value="'+reste+'"></label><label class="f">Mode de paiement<select class="in" id="a-mode">'+modeOpts()+'</select></label><button class="btn pri" id="a-add">Enregistrer le paiement</button></div>':'')+
    '<p class="sub err" id="f-err"></p><button class="btn" id="f-cx">Retour à la liste</button><button class="btn pri" id="s-fa">📄 Facture PDF (WhatsApp)</button><button class="btn" id="s-wa">Reçu texte (WhatsApp)</button>'+(isAdmin()?'<button class="btn dng" id="s-del">Annuler cette vente</button>':'');
@@ -414,14 +442,14 @@ function backupInit(){
  };
  E('b-csvp').onclick=async function(){
   try{var rows=[['ID','Type','Marque','Modèle','Caractéristiques','État','Numéro de série','IMEI 1','IMEI 2','Date d’achat','Fournisseur','Prix d’achat (FCFA)','Prix de vente prévu (FCFA)','Prix de vente réel (FCFA)','Dépenses (FCFA)','Coût de revient (FCFA)','Statut','Jours depuis l’achat','Quantité']];
-   (await all()).forEach(function(p){rows.push([p.id,({pc:'Ordinateur',enc:'Enceinte Bluetooth',chg:'Chargeur PC',con:'Console de jeux',bsn:'Boisson',ovb:'Overboard',div:'Divers',csf:'Casque filaire',csb:'Casque sans fil'})[p.type]||'Téléphone',p.marque,p.modele,p.caract,p.etat,txt(p.serie),txt(p.imei1),txt(p.imei2),p.dateAchat,p.fournisseur,p.prixAchat||0,p.prixPrevu||0,p.prixReel||'',coutDe(p)-(p.prixAchat||0),coutDe(p),p.statut,jours(p),isB(p)?(p.qte||0):1])});
+   (await all()).forEach(function(p){rows.push([p.id,({pc:'Ordinateur',enc:'Enceinte Bluetooth',chg:'Chargeur PC',con:'Console de jeux',bsn:'Boisson',ovb:'Overboard',div:'Divers',csf:'Casque filaire',csb:'Casque sans fil',app:'Appareil photo numérique',mon:'Montre connectée'})[p.type]||'Téléphone',p.marque,p.modele,p.caract,p.etat,txt(p.serie),txt(p.imei1),txt(p.imei2),p.dateAchat,p.fournisseur,p.prixAchat||0,p.prixPrevu||0,p.prixReel||'',coutDe(p)-(p.prixAchat||0),coutDe(p),p.statut,jours(p),isB(p)?(p.qte||0):1])});
    dl('zafnatech-produits-'+today()+'.csv','text/csv;charset=utf-8',csv(rows));msg('Fichier des produits créé.')}
   catch(e){msg('Export impossible.',1)}
  };
  E('b-csvv').onclick=async function(){
   try{var map={};(await all()).forEach(function(p){map[p.id]=p});
-   var rows=[['ID','Date','Article','Client','Contact','Prix de vente (FCFA)','Coût de revient (FCFA)','Marge (FCFA)','Payé (FCFA)','Reste à payer (FCFA)','Détail des paiements']];
-   (await all('ventes')).forEach(function(v){var p=map[v.produitId],c=coutV(v,p);rows.push([v.id,v.date,v.nom+(v.qte?' × '+v.qte:''),v.client,txt(v.contact),v.prix,c,v.prix-c,paye(v),v.prix-paye(v),v.paiements.map(function(x){return x.date+' '+x.mode+' '+x.montant}).join(' / ')])});
+   var rows=[['ID','Date','Article','Client','Contact','Prix de vente (FCFA)','Coût de revient (FCFA)','Marge (FCFA)','Payé (FCFA)','Reste à payer (FCFA)','Détail des paiements','Vendeur']];
+   (await all('ventes')).forEach(function(v){var p=map[v.produitId],c=coutV(v,p);rows.push([v.id,v.date,v.nom+(v.qte?' × '+v.qte:''),v.client,txt(v.contact),v.prix,c,v.prix-c,paye(v),v.prix-paye(v),v.paiements.map(function(x){return x.date+' '+x.mode+' '+x.montant}).join(' / '),v.par||''])});
    dl('zafnatech-ventes-'+today()+'.csv','text/csv;charset=utf-8',csv(rows));msg('Fichier des ventes créé.')}
   catch(e){msg('Export impossible.',1)}
  };
@@ -438,7 +466,7 @@ function backupInit(){
 function isB(p){return ['bsn','div','csf','csb'].indexOf(p.type)>-1}
 function nb(p){return isB(p)?(p.qte||0):1}
 function coutV(v,p){return v.qte?v.cout:(p?coutDe(p):v.cout)}
-var TYPES=[['tel','Téléphones'],['pc','Ordinateurs'],['enc','Enceintes Bluetooth'],['chg','Chargeurs PC'],['con','Consoles de jeux'],['bsn','Boissons'],['ovb','Overboards'],['div','Divers'],['csf','Casques filaires'],['csb','Casques sans fil']];
+var TYPES=[['tel','Téléphones'],['pc','Ordinateurs'],['enc','Enceintes Bluetooth'],['chg','Chargeurs PC'],['con','Consoles de jeux'],['bsn','Boissons'],['ovb','Overboards'],['div','Divers'],['csf','Casques filaires'],['csb','Casques sans fil'],['app','Appareils photo'],['mon','Montres connectées']];
 function tNom(t){for(var i=0;i<TYPES.length;i++)if(TYPES[i][0]===t)return TYPES[i][1];return'Autres'}
 function tile(l,v,w){return'<div class="tile'+(w?' w2':'')+'"><span>'+l+'</span><b>'+v+'</b></div>'}
 function bmsg(t,er){var m=E('b-msg');if(m){m.textContent=t;m.className='sub'+(er?' err':'')}}
@@ -859,14 +887,15 @@ if(!fbOK){app.innerHTML='<div class="lock"><div class="logo">Z</div><h1>Cloud no
 else auth.onAuthStateChanged(function(u){
  if(!u){uid=null;dataUid=null;role='admin';showLogin();return}
  uid=u.uid;
- function go(o,r){dataUid=o;role=r;if(saved())lock();else setup1()}
+ function go(o,r,n){dataUid=o;role=r;monNom=n||(r==='admin'?'Propriétaire':'Vendeur');if(saved())lock();else setup1()}
  fdb.collection('membres').doc(u.uid).get().then(function(d){
   var o=d.exists?d.data().owner:u.uid,r=d.exists?(d.data().role||'vendeur'):'admin';
-  store.set('zt_acc',JSON.stringify({u:u.uid,o:o,r:r}));
-  go(o,r);
+  var n=d.exists?(d.data().nom||''):'';
+  store.set('zt_acc',JSON.stringify({u:u.uid,o:o,r:r,n:n}));
+  go(o,r,n);
  }).catch(function(e){
   var c=null;try{c=JSON.parse(store.get('zt_acc'))}catch(x){}
-  if(c&&c.u===u.uid)go(c.o,c.r);
+  if(c&&c.u===u.uid)go(c.o,c.r,c.n);
   else if(e&&e.code==='permission-denied')go(u.uid,'admin');
   else app.innerHTML='<div class="lock"><div class="logo">Z</div><h1>Connexion impossible</h1><p class="sub">Impossible de vérifier votre compte. Vérifiez internet puis rouvrez l’application.</p></div>';
  });
