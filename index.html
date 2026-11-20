@@ -228,7 +228,7 @@ function prodForm(p){
  E("f-cx").onclick=prodList;
  if(!nw)E("f-del").onclick=async function(){
   if(!sure){sure=true;this.textContent="Appuyez encore pour confirmer la suppression";return}
-  await del(p.id);prodList();
+  await del(p.id);notifier('Produit supprimé',p.marque+' '+p.modele);prodList();
  };
  E("f-save").onclick=async function(){
   function g(i){return E(i).value.trim()}
@@ -255,6 +255,7 @@ function prodForm(p){
    if(nw)o.creeLe=Date.now();
    await put(o);
    if(!nw&&p.type!==o.type){var vs=(await all("ventes")).filter(function(v){return v.produitId===o.id});for(var i=0;i<vs.length;i++){vs[i].type=o.type;await put(vs[i],"ventes")}}
+   evtProduit(nw,p,o);
    prodList();
   }catch(e){er("Enregistrement impossible. Vérifiez l’espace de stockage du téléphone.")}
  };
@@ -341,6 +342,7 @@ function ventForm(dispo){
   try{
    var rec={produitId:p.id,type:p.type,nom:p.marque+' '+p.modele,date:d,prix:px,cout:b?n*(p.prixAchat||0):coutDe(p),qte:b?n:0,par:monNom,client:E('v-c').value.trim(),contact:E('v-t').value.trim(),paiements:en>0?[{date:d,montant:en,mode:E('v-mode').value}]:[],creeLe:Date.now()};await put(rec,'ventes');
    if(b){p.qte=(p.qte||0)-n;if(p.qte<=0)p.statut='Vendu'}else{p.statut='Vendu'}p.prixReel=b?Number(E('v-prix').value):px;p.dateVente=d;await put(p);
+   notifier('Vente enregistrée',rec.nom+(rec.qte?' × '+rec.qte:'')+' - '+fcfa(rec.prix)+(rec.client?' ('+rec.client+')':''));
    factureEcran(rec,p);
   }catch(e){ventErr('Enregistrement impossible. Vérifiez l’espace de stockage du téléphone.')}
  };
@@ -359,12 +361,12 @@ function ventDetail(v,p){
   if(a)a.onclick=async function(){
    var m=Number(E('a-m').value);
    if(!(m>0)||m>reste)return ventErr('Le montant doit être compris entre 1 et '+reste+' FCFA.');
-   v.paiements.push({date:today(),montant:m,mode:E('a-mode').value});
+   v.paiements.push({date:today(),montant:m,mode:E('a-mode').value});notifier('Paiement reçu',fcfa(m)+' - '+v.nom+(v.client?' ('+v.client+')':''));
    try{await put(v,'ventes');draw()}catch(e){ventErr('Enregistrement impossible.')}
   };
   var sd=E('s-del');if(sd)sd.onclick=async function(){
    if(!sure){sure=true;this.textContent='Appuyez encore : le produit repasse « En stock »';return}
-   await del(v.id,'ventes');
+   await del(v.id,'ventes');notifier('Vente annulée',v.nom+' - '+fcfa(v.prix));
    if(p){if(v.qte)p.qte=(p.qte||0)+v.qte;p.statut='En stock';p.prixReel=null;p.dateVente=null;await put(p)}
    ventList();
   };
@@ -429,6 +431,7 @@ function backupInit(){
  if(!E('b-out'))return;
  E('b-out').onclick=function(){auth.signOut()};
  E('b-pw').onclick=function(){var u=auth.currentUser;auth.sendPasswordResetEmail(u.email).then(function(){bmsg('E-mail envoyé à '+u.email+'. Ouvrez-le pour choisir un nouveau mot de passe.')},function(){bmsg('Envoi impossible. Vérifiez la connexion.',1)})};
+ notifInit();
  empInit();
  infoInit();
  sigInit();
@@ -569,6 +572,7 @@ async function empInit(){
 function backupUI(){
  var d=store.get('zt_bk'),u=auth&&auth.currentUser;
  var h='<div class="card"><h2>Mon compte</h2><p>Connecté : <b>'+esc(u?u.email:'')+'</b><br>Rôle : <b>'+(isAdmin()?'Propriétaire':'Vendeur')+'</b></p></div><button class="btn" id="b-pw">🔑 Changer mon mot de passe (par e-mail)</button><button class="btn" id="b-out">Se déconnecter</button>';
+ h+=notifUI();
  if(!isAdmin())return h+'<div class="sub" id="b-msg"></div>';
  return h+empUI()+sigUI()+infoUI()+'<div class="card"><h2>Sauvegarde et transfert</h2><p>Dernière sauvegarde : <b>'+(d?dfr(d):'jamais')+'</b>. Le fichier contient tous vos produits, photos et ventes, mais pas le PIN. Il n’est pas chiffré : gardez-le en lieu sûr. Les données sont dans le cloud : pour changer de téléphone, connectez-vous simplement avec le même e-mail. La sauvegarde reste utile en cas d’erreur.</p></div><button class="btn" id="b-save">💾 Créer une sauvegarde complète</button><button class="btn" id="b-rest">📥 Restaurer une sauvegarde</button><input type="file" id="b-file" accept=".json,application/json" hidden><button class="btn" id="b-csvp">📄 Exporter les produits (Excel/CSV)</button><button class="btn" id="b-csvv">📄 Exporter les ventes (Excel/CSV)</button><div class="sub" id="b-msg"></div>';
 }
@@ -840,6 +844,93 @@ async function sigInit(){
   catch(e){msg('Suppression impossible.',1)}
  };
 }
+var MYDEV=store.get('zt_dev')||(function(){var d='d'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);store.set('zt_dev',d);return d})(),evUnsub=null,evSeen={};
+function toast(t,m){
+ var d=document.createElement('div');
+ d.style.cssText='position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 12px);z-index:99;background:var(--pri);color:var(--prit);padding:12px 14px;border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.3);font-size:14px;line-height:1.35';
+ d.innerHTML='<b>'+esc(t)+'</b><br>'+esc(m);
+ d.onclick=function(){d.remove()};
+ document.body.appendChild(d);setTimeout(function(){d.remove()},7000);
+ try{if(navigator.vibrate)navigator.vibrate([120,60,120])}catch(e){}
+}
+function afficher(t,m){
+ if(!document.hidden&&unlocked){toast(t,m);return}
+ try{
+  if('Notification' in window&&Notification.permission==='granted'){
+   var o={body:m,icon:'icon-192.png',badge:'icon-192.png',tag:'zt-'+Date.now(),vibrate:[120,60,120]};
+   if(navigator.serviceWorker&&navigator.serviceWorker.getRegistration)navigator.serviceWorker.getRegistration().then(function(r){if(r)r.showNotification(t,o);else new Notification(t,o)}).catch(function(){});
+   else new Notification(t,o);
+  }
+ }catch(e){}
+}
+function ntfyEnvoi(t,m){
+ getSet().then(function(set){
+  if(!set.ntfyTopic)return;
+  fetch('https://ntfy.sh/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:set.ntfyTopic,title:t,message:m,priority:3})}).catch(function(){});
+ }).catch(function(){});
+}
+function notifier(titre,msg){
+ try{
+  var o={ts:Date.now(),titre:titre,msg:msg,par:monNom,dev:MYDEV};
+  col('evenements').doc(String(o.ts)+Math.floor(Math.random()*1000)).set(o).catch(function(){});
+  ntfyEnvoi(titre,msg);
+ }catch(e){}
+}
+function ecouterEvt(){
+ if(evUnsub||!fdb||!dataUid)return;
+ try{
+  evUnsub=col('evenements').where('ts','>',Date.now()-60000).onSnapshot(function(s){
+   s.docChanges().forEach(function(c){
+    if(c.type!=='added')return;
+    var d=c.doc.data();
+    if(d.dev===MYDEV||evSeen[c.doc.id])return;
+    evSeen[c.doc.id]=1;
+    afficher(d.titre,d.msg+(d.par?' - '+d.par:''));
+   });
+  },function(){evUnsub=null});
+ }catch(e){evUnsub=null}
+}
+function evStop(){if(evUnsub){try{evUnsub()}catch(e){}evUnsub=null}}
+function evtProduit(nw,p,o){
+ var nom=o.marque+' '+o.modele;
+ if(nw){notifier('Produit ajouté',nom+(isB(o)?' (stock : '+(o.qte||0)+')':''));return}
+ var L={marque:'marque',modele:'modèle',caract:'caractéristiques',etat:'état',serie:'n° de série',imei1:'IMEI 1',imei2:'IMEI 2',fournisseur:'fournisseur',dateAchat:'date d’achat',prixAchat:'prix',prixPrevu:'prix',statut:'statut',type:'catégorie',qte:'quantité'},ch=[];
+ Object.keys(L).forEach(function(k){if(String(p[k]==null?'':p[k])!==String(o[k]==null?'':o[k])&&ch.indexOf(L[k])<0)ch.push(L[k])});
+ if(JSON.stringify(p.depenses||[])!==JSON.stringify(o.depenses||[]))ch.push('dépenses');
+ if(JSON.stringify(p.photos||[])!==JSON.stringify(o.photos||[]))ch.push('photos');
+ if(ch.length)notifier('Produit modifié',nom+' : '+ch.join(', '));
+}
+function notifUI(){
+ var h='<div class="card"><h2>Notifications</h2><p>Quand un autre téléphone enregistre une vente, ajoute, modifie ou supprime un produit, une notification s’affiche ici. Elle apparaît tant que l’application est ouverte ou en arrière-plan.</p><p class="m" id="n-etat"></p></div><button class="btn" id="n-on">🔔 Activer les notifications sur ce téléphone</button><button class="btn" id="n-test">Envoyer une notification de test</button>';
+ if(isAdmin())h+='<div class="card"><h2>Même application fermée (option)</h2><p id="n-ntfy"></p></div><button class="btn" id="n-ntfy-btn">Configurer</button><button class="btn" id="n-log">📜 Voir le journal d’activité</button><div id="n-logbox"></div>';
+ return h;
+}
+async function notifInit(){
+ if(!E('n-on'))return;
+ function etat(){var p='Notification' in window?Notification.permission:'indisponible';E('n-etat').textContent='État sur ce téléphone : '+({granted:'activées',denied:'bloquées (à autoriser dans les réglages du site dans Chrome)',default:'pas encore activées',indisponible:'non prises en charge'}[p]||p)}
+ etat();
+ E('n-on').onclick=function(){if(!('Notification' in window))return etat();Notification.requestPermission().then(etat)};
+ E('n-test').onclick=function(){var h=document.hidden;toast('Test de notification','Les notifications fonctionnent sur ce téléphone.')};
+ if(!isAdmin())return;
+ var set=await getSet();
+ function maj(){
+  var t=set.ntfyTopic;if(!E('n-ntfy'))return;
+  E('n-ntfy').innerHTML=t?'<b>Activé.</b> Sur chaque téléphone, installez l’application gratuite <b>ntfy</b>, appuyez sur « + » puis saisissez ce sujet exactement :<br><b style="word-break:break-all">'+esc(t)+'</b><br>Ce sujet agit comme un mot de passe : ne le partagez qu’avec vos employés. Les messages (produit et montant) passent par le service ntfy.sh.':'Pour être alerté même quand l’application est fermée, vous pouvez utiliser l’application gratuite ntfy. Les messages (produit et montant de la vente) passent alors par le service ntfy.sh.';
+  E('n-ntfy-btn').textContent=t?'Désactiver ntfy':'Configurer (application ntfy)';
+ }
+ maj();
+ E('n-ntfy-btn').onclick=async function(){
+  var t=set.ntfyTopic?'':'zafnatech-'+rnd()+rnd();
+  try{await col('parametres').doc('boutique').set({ntfyTopic:t},{merge:true});set.ntfyTopic=t;if(bSet)bSet.ntfyTopic=t;maj()}catch(e){if(E('n-ntfy'))E('n-ntfy').textContent='Enregistrement impossible. Vérifiez la connexion.'}
+ };
+ E('n-log').onclick=async function(){
+  var b=E('n-logbox');b.innerHTML='<p class="m">Chargement…</p>';
+  try{
+   var s=await col('evenements').orderBy('ts','desc').limit(40).get();
+   b.innerHTML=s.docs.length?'<div class="card">'+s.docs.map(function(d){var x=d.data();return'<div class="dl" style="display:block"><b>'+esc(x.titre)+'</b>'+(x.par?' - '+esc(x.par):'')+'<br><span class="m">'+esc(x.msg)+'<br>'+new Date(x.ts).toLocaleString('fr-FR')+'</span></div>'}).join('')+'</div>':'<p class="m">Aucune activité enregistrée pour le moment.</p>';
+  }catch(e){b.innerHTML='<p class="m">Journal indisponible.</p>'}
+ };
+}
 var tabs=[["bord","📊","Accueil"],["prod","📦","Produits"],["vent","🧾","Ventes"],["reg","⚙️","Réglages"]];
 function card(t,p){return'<div class="card"><h2>'+t+'</h2><p>'+p+'</p></div>'}
 var pages={
@@ -849,7 +940,7 @@ var pages={
  reg:function(){return'<button class="btn" id="b-lock">🔒 Verrouiller maintenant</button><button class="btn" id="b-pin">🔑 Changer le code PIN</button>'+backupUI()+card("À savoir","Si vous oubliez votre PIN, il faudra réinitialiser l’application. Faites une sauvegarde chaque semaine et gardez le fichier hors du téléphone (e-mail, Drive).")}
 };
 function showApp(tab){
- unlocked=true;
+ unlocked=true;ecouterEvt();
  var h='<div class="top">Zafnatech Stock</div><main>'+pages[tab]()+'</main><nav>';
  tabs.forEach(function(t){h+='<button data-t="'+t[0]+'" class="'+(t[0]===tab?"on":"")+'"><span>'+t[1]+'</span>'+t[2]+'</button>'});
  app.innerHTML=h+'</nav>';
@@ -885,7 +976,7 @@ function showLogin(msg){
 }
 if(!fbOK){app.innerHTML='<div class="lock"><div class="logo">Z</div><h1>Cloud non configuré</h1><p class="sub">Impossible de démarrer le service en ligne. Vérifiez la connexion internet et le fichier firebase-config.js.</p></div>'}
 else auth.onAuthStateChanged(function(u){
- if(!u){uid=null;dataUid=null;role='admin';showLogin();return}
+ if(!u){evStop();uid=null;dataUid=null;role='admin';showLogin();return}
  uid=u.uid;
  function go(o,r,n){dataUid=o;role=r;monNom=n||(r==='admin'?'Propriétaire':'Vendeur');if(saved())lock();else setup1()}
  fdb.collection('membres').doc(u.uid).get().then(function(d){
